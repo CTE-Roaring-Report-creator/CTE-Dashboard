@@ -1420,18 +1420,22 @@ function AppInner({ focusedLesson, onLessonFocused, isActive }) {
   const course = getCourse(selectedCourse);
 
   // Load all curricula on mount
- useEffect(() => {
+useEffect(() => {
   async function init() {
-    await initGoogleAuth();
-    // Try silent sign-in first (works if they signed in recently)
-    const silentOk = await signIn();
-    if (silentOk) {
-      setDriveReady(true);
-      await loadAllCurricula();
+    try {
+      await initGoogleAuth();
+      const silentOk = await signIn();
+      if (silentOk) {
+        setDriveReady(true);
+        await loadAllCurricula();
+      }
+    } catch(e) {
+      console.error('[CTE] init failed:', e);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
-  init().catch(e => console.error('[CTE] init() crashed:', e));
+  init();
 }, []);
 
 async function loadAllCurricula() {
