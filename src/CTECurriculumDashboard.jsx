@@ -1744,9 +1744,39 @@ if (!driveReady) {
                   <button onClick={() => { exportCurriculumJSON(course, pathway, units); setShowExportMenu(false); }} onMouseEnter={e => e.currentTarget.style.background="#252b40"} onMouseLeave={e => e.currentTarget.style.background="none"} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#f0ede8", borderBottom: "1px solid #2a3050", textAlign: "left" }}>
                     <Download size={14} color="#1a56c4" /> Export as JSON
                   </button>
-                  <button onClick={() => { exportCurriculumText(course, pathway, units); setShowExportMenu(false); }} onMouseEnter={e => e.currentTarget.style.background="#252b40"} onMouseLeave={e => e.currentTarget.style.background="none"} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#f0ede8", textAlign: "left" }}>
+                  <button onClick={() => { exportCurriculumText(course, pathway, units); setShowExportMenu(false); }} onMouseEnter={e => e.currentTarget.style.background="#252b40"} onMouseLeave={e => e.currentTarget.style.background="none"} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#f0ede8", borderBottom: "1px solid #2a3050", textAlign: "left" }}>
                     <FileText size={14} color="#166534" /> Export as Text Outline
                   </button>
+                  <label onMouseEnter={e => e.currentTarget.style.background="#252b40"} onMouseLeave={e => e.currentTarget.style.background="none"} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", cursor: "pointer", fontSize: 14, color: "#f0ede8", textAlign: "left", boxSizing: "border-box" }}>
+                    <Download size={14} color="#7c3aed" /> Import JSON
+                    <input
+                      type="file"
+                      accept=".json"
+                      style={{ display: "none" }}
+                      onChange={async (e) => {
+                        const file = e.target.files[0];
+                        if (!file) return;
+                        try {
+                          const text = await file.text();
+                          const data = JSON.parse(text);
+                          // Derive courseId from filename e.g. "curriculum-intro-tech.json"
+                          const courseId = file.name.replace(/^curriculum-/, '').replace(/\.json$/, '');
+                          const allIds = PATHWAYS.flatMap(p => p.courses.map(c => c.id));
+                          if (!allIds.includes(courseId)) {
+                            alert(`Could not match "${file.name}" to a known course.\n\nExpected filename like: curriculum-intro-tech.json`);
+                            return;
+                          }
+                          await saveCurriculum(courseId, data);
+                          setCurricula(c => ({ ...c, [courseId]: data }));
+                          setShowExportMenu(false);
+                          alert(`✓ Imported ${courseId} successfully!`);
+                        } catch(err) {
+                          alert('Import failed — make sure this is a valid curriculum JSON file.');
+                        }
+                        e.target.value = '';
+                      }}
+                    />
+                  </label>
                 </div>
               )}
             </div>
@@ -1792,47 +1822,7 @@ if (!driveReady) {
         </div>
       )}
 
-      {/* One-time migration: fix lab → group-project in localStorage */}
-      {(() => {
-        const COURSE_IDS = ["intro-tech", "digital-innovation", "media-a", "media-b"];
-        const needsMigration = COURSE_IDS.some(id => {
-          try {
-            const data = JSON.parse(localStorage.getItem(`master-curriculum:${id}`) || "{}");
-            return (data.units || []).some(u => (u.lessons || []).some(l => l.type === "lab"));
-          } catch (_) { return false; }
-        });
-        if (!needsMigration) return null;
-        const runMigration = () => {
-          let total = 0;
-          COURSE_IDS.forEach(id => {
-            try {
-              const data = JSON.parse(localStorage.getItem(`master-curriculum:${id}`) || "{}");
-              let changed = false;
-              (data.units || []).forEach(u => {
-                (u.lessons || []).forEach(l => {
-                  if (l.type === "lab") { l.type = "group-project"; changed = true; total++; }
-                });
-              });
-              if (changed) localStorage.setItem(`master-curriculum:${id}`, JSON.stringify(data));
-            } catch (_) {}
-          });
-          alert(`Migration complete — ${total} lesson${total !== 1 ? "s" : ""} updated from Lab to Group Project. The page will now reload.`);
-          window.location.reload();
-        };
-        return (
-          <div style={{ padding: "10px 16px", marginBottom: 12, borderRadius: 8, background: "#0d1f3d", border: "1px solid #1a3a6b", display: "flex", alignItems: "center", gap: 12 }}>
-            <span style={{ fontSize: 13, flex: 1, color: "#7aabf0" }}>
-              🔧 Old "Lab" lesson types detected in saved data — click to migrate to "Group Project".
-            </span>
-            <button
-              onClick={runMigration}
-              style={{ ...btnStyle, background: "#1a56c4", color: "white", borderColor: "#1a56c4", fontWeight: 600, whiteSpace: "nowrap" }}
-            >
-              Fix Now
-            </button>
-          </div>
-        );
-      })()}
+
 
       {/* Search Panel */}
       {showSearch && (
