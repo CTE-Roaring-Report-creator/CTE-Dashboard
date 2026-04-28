@@ -19,18 +19,31 @@ export function isSignedIn() {
 
 export function initGoogleAuth() {
   return new Promise((resolve) => {
-    if (window.google?.accounts?.oauth2) {
+    // Timeout after 3 seconds no matter what
+    const timeout = setTimeout(() => {
+      console.warn('[Drive] initGoogleAuth timed out');
+      resolve(false);
+    }, 3000);
+
+    function finish() {
+      clearTimeout(timeout);
       setupTokenClient(resolve);
+    }
+
+    if (window.google?.accounts?.oauth2) {
+      finish();
       return;
     }
-    // Wait for the script to load
+
     const existing = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
     if (existing) {
-      existing.addEventListener('load', () => setupTokenClient(resolve));
+      existing.addEventListener('load', finish);
+      existing.addEventListener('error', () => { clearTimeout(timeout); resolve(false); });
     } else {
       const script = document.createElement('script');
       script.src = 'https://accounts.google.com/gsi/client';
-      script.onload = () => setupTokenClient(resolve);
+      script.onload = finish;
+      script.onerror = () => { clearTimeout(timeout); resolve(false); };
       document.head.appendChild(script);
     }
   });
