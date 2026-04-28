@@ -1,5 +1,17 @@
 import { useState, useEffect, useCallback, useRef, Component } from "react";
 import { ChevronDown, ChevronRight, Plus, Trash2, GripVertical, Search, X, ExternalLink, BookOpen, RotateCcw, Edit3, AlertTriangle, Clock, Layers, Copy, Download, Settings, Check, FileText } from "lucide-react";
+import {
+  initGoogleAuth,
+  signIn,
+  signOut,
+  isSignedIn,
+  loadCurriculum,
+  saveCurriculum,
+  loadSettings,
+  saveSettings,
+  loadStandards,
+  saveStandards,
+} from './driveStorage';
 
 console.log("[CTE] Module loading...");
 
@@ -479,35 +491,6 @@ const SEED_DATA = {
     ]
   }
 };
-
-// ─── STORAGE HELPERS ─────────────────────────────────────────────────────────
-async function loadCurriculum(courseId) {
-  try {
-    const val = localStorage.getItem(`master-curriculum:${courseId}`);
-    if (val) return JSON.parse(val);
-  } catch (_) {}
-  return null;
-}
-
-async function saveCurriculum(courseId, data) {
-  try {
-    localStorage.setItem(`master-curriculum:${courseId}`, JSON.stringify(data));
-  } catch (_) {}
-}
-
-async function loadSettings() {
-  try {
-    const val = localStorage.getItem("app-settings");
-    if (val) return JSON.parse(val);
-  } catch (_) {}
-  return { selectedCourse: "intro-tech", standards: DEFAULT_STANDARDS, mediaYear: "media-a" };
-}
-
-async function saveSettings(settings) {
-  try {
-    localStorage.setItem("app-settings", JSON.stringify(settings));
-  } catch (_) {}
-}
 // ─── UTILITY ─────────────────────────────────────────────────────────────────
 
 function getLessonTypeMeta(type) {
@@ -1403,7 +1386,9 @@ function AppInner({ focusedLesson, onLessonFocused, isActive }) {
   const [mediaYear, setMediaYear] = useState("media-a");
   const saveTimer = useRef(null);
   const focusedLessonRowRef = useRef(null); // ref attached to the highlighted lesson row
-
+  const [driveReady, setDriveReady] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
+  
   // When navigated here from Phase 3, switch course and scroll to the lesson
   useEffect(() => {
     if (!focusedLesson) return;
@@ -1435,33 +1420,39 @@ function AppInner({ focusedLesson, onLessonFocused, isActive }) {
   const course = getCourse(selectedCourse);
 
   // Load all curricula on mount
-  useEffect(() => {
-    async function init() {
-      console.log("[CTE] init() started, window.storage available:", typeof window.storage);
-      const settings = await loadSettings();
-      if (settings.selectedCourse) setSelectedCourse(settings.selectedCourse);
-      if (settings.mediaYear) setMediaYear(settings.mediaYear);
-      const loaded = {};
-      for (const p of PATHWAYS) {
-        for (const c of p.courses) {
-          const data = await loadCurriculum(c.id);
-          if (!data && SEED_DATA[c.id]) {
-            await saveCurriculum(c.id, SEED_DATA[c.id]);
-          }
-          loaded[c.id] = data || SEED_DATA[c.id] || { units: [] }
-        }
-      }
-      setCurricula(loaded);
-      // Load custom standards if saved
-      try {
-        const stdVal = localStorage.getItem("custom-standards");
-        if (stdVal) setStandards(JSON.parse(stdVal));
-      } catch(_) {}
-      console.log("[CTE] Curricula loaded, setting loading=false");
-      setLoading(false);
+ useEffect(() => {
+  async function init() {
+    await initGoogleAuth();
+    // Try silent sign-in first (works if they signed in recently)
+    const silentOk = await signIn();
+    if (silentOk) {
+      setDriveReady(true);
+      await loadAllCurricula();
     }
-    init().catch(e => console.error("[CTE] init() crashed:", e));
-  }, []);
+    setLoading(false);
+  }
+  init().catch(e => console.error('[CTE] init() crashed:', e));
+}, []);
+
+async function loadAllCurricula() {
+  const settings = await loadSettings();
+  if (settings.selectedCourse) setSelectedCourse(settings.selectedCourse);
+  if (settings.mediaYear) setMediaYear(settings.mediaYear);
+  const loaded = {};
+  for (const p of PATHWAYS) {
+    for (const c of p.courses) {
+      const data = await loadCurriculum(c.id);
+      if (!data && SEED_DATA[c.id]) {
+        await saveCurriculum(c.id, SEED_DATA[c.id]);
+      }
+      loaded[c.id] = data || SEED_DATA[c.id] || { units: [] };
+    }
+  }
+  setCurricula(loaded);
+  // Load custom standards
+  const std = await loadStandards();
+  if (std) setStandards(std);
+}
 
   // Re-read all curricula from localStorage whenever Phase 1 becomes active
   // This picks up any bell ringer edits made in Phase 2
@@ -1490,9 +1481,9 @@ function AppInner({ focusedLesson, onLessonFocused, isActive }) {
   if (!loading) saveSettings({ selectedCourse, mediaYear });
   }, [selectedCourse, mediaYear, loading]);
 
-  async function saveStandards(list) {
+async function handleSaveStandards(list) {
   setStandards(list);
-  try { localStorage.setItem("custom-standards", JSON.stringify(list)); } catch(_) {}
+  await saveStandards(list);
   setShowStandardsMgr(false);
 }
 
@@ -1589,7 +1580,32 @@ function AppInner({ focusedLesson, onLessonFocused, isActive }) {
     saveCurriculum(selectedCourse, seed);
     setShowResetConfirm(false);
   }
-
+if (!driveReady && !loading) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', 
+                  justifyContent: 'center', height: '100vh', background: '#0f1117', gap: 20 }}>
+      <div style={{ fontSize: 28, fontWeight: 700, color: '#f0ede8' }}>CTE Curriculum Dashboard</div>
+      <div style={{ fontSize: 15, color: '#9ca3b8' }}>Sign in with Google to load your curriculum</div>
+      <button
+        onClick={async () => {
+          setSigningIn(true);
+          const ok = await signIn();
+          if (ok) {
+            setDriveReady(true);
+            setLoading(true);
+            await loadAllCurricula();
+            setLoading(false);
+          }
+          setSigningIn(false);
+        }}
+        style={{ padding: '12px 28px', borderRadius: 10, background: '#1a56c4', 
+                 color: '#fff', border: 'none', fontSize: 16, fontWeight: 600, cursor: 'pointer' }}
+      >
+        {signingIn ? 'Signing in...' : 'Sign in with Google'}
+      </button>
+    </div>
+  );
+}
   if (loading) {
     return (
       <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", background: "#0f1117", color: "#5a6380", fontSize: 14 }}>
@@ -1604,7 +1620,7 @@ function AppInner({ focusedLesson, onLessonFocused, isActive }) {
 
   return (
     <div style={{ fontFamily: "var(--font-sans)", color: "#e8e6e1", width: "100%", maxWidth: 1280, margin: "0 auto", boxSizing: "border-box", padding: "0 32px 60px", background: "#0f1117", minHeight: "100vh" }}>
-      {showStandardsMgr && <StandardsManager standards={standards} onSave={saveStandards} onClose={() => setShowStandardsMgr(false)} />}
+      {showStandardsMgr && <StandardsManager standards={standards} onSave={handleSaveStandards} onClose={() => setShowStandardsMgr(false)} />}
 
       {/* Sticky Header */}
       <div style={{
