@@ -1747,36 +1747,42 @@ if (!driveReady) {
                   <button onClick={() => { exportCurriculumText(course, pathway, units); setShowExportMenu(false); }} onMouseEnter={e => e.currentTarget.style.background="#252b40"} onMouseLeave={e => e.currentTarget.style.background="none"} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#f0ede8", borderBottom: "1px solid #2a3050", textAlign: "left" }}>
                     <FileText size={14} color="#166534" /> Export as Text Outline
                   </button>
-                  <label onMouseEnter={e => e.currentTarget.style.background="#252b40"} onMouseLeave={e => e.currentTarget.style.background="none"} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", cursor: "pointer", fontSize: 14, color: "#f0ede8", textAlign: "left", boxSizing: "border-box" }}>
-                    <Download size={14} color="#7c3aed" /> Import JSON
-                    <input
-                      type="file"
-                      accept=".json"
-                      style={{ display: "none" }}
-                      onChange={async (e) => {
-                        const file = e.target.files[0];
-                        if (!file) return;
-                        try {
-                          const text = await file.text();
-                          const data = JSON.parse(text);
-                          // Derive courseId from filename e.g. "curriculum-intro-tech.json"
-                          const courseId = file.name.replace(/^curriculum-/, '').replace(/\.json$/, '');
-                          const allIds = PATHWAYS.flatMap(p => p.courses.map(c => c.id));
-                          if (!allIds.includes(courseId)) {
-                            alert(`Could not match "${file.name}" to a known course.\n\nExpected filename like: curriculum-intro-tech.json`);
-                            return;
-                          }
-                          await saveCurriculum(courseId, data);
-                          setCurricula(c => ({ ...c, [courseId]: data }));
-                          setShowExportMenu(false);
-                          alert(`✓ Imported ${courseId} successfully!`);
-                        } catch(err) {
-                          alert('Import failed — make sure this is a valid curriculum JSON file.');
-                        }
-                        e.target.value = '';
-                      }}
-                    />
-                  </label>
+                  <label 
+  onMouseDown={e => e.stopPropagation()}
+  onMouseEnter={e => e.currentTarget.style.background="#252b40"} 
+  onMouseLeave={e => e.currentTarget.style.background="none"} 
+  style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", 
+           padding: "12px 16px", background: "none", cursor: "pointer", 
+           fontSize: 14, color: "#f0ede8", textAlign: "left", boxSizing: "border-box" }}>
+  <Download size={14} color="#7c3aed" /> Import JSON
+  <input
+    type="file"
+    accept=".json"
+    style={{ display: "none" }}
+    onMouseDown={e => e.stopPropagation()}
+    onChange={async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        const courseId = file.name.replace(/^curriculum-/, '').replace(/\.json$/, '');
+        const allIds = PATHWAYS.flatMap(p => p.courses.map(c => c.id));
+        if (!allIds.includes(courseId)) {
+          alert(`Could not match "${file.name}" to a known course.\n\nExpected filename like: curriculum-intro-tech.json`);
+          return;
+        }
+        await saveCurriculum(courseId, data);
+        setCurricula(c => ({ ...c, [courseId]: data }));
+        setShowExportMenu(false);
+        alert(`✓ Imported ${courseId} successfully!`);
+      } catch(err) {
+        alert('Import failed — make sure this is a valid curriculum JSON file.');
+      }
+      e.target.value = '';
+    }}
+  />
+</label>
                 </div>
               )}
             </div>
