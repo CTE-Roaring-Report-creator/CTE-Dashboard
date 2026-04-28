@@ -17,16 +17,21 @@ export function isSignedIn() {
   return !!accessToken;
 }
 
-export async function initGoogleAuth() {
+export function initGoogleAuth() {
   return new Promise((resolve) => {
-    // Load the GIS script if not already loaded
-    if (!window.google?.accounts?.oauth2) {
+    if (window.google?.accounts?.oauth2) {
+      setupTokenClient(resolve);
+      return;
+    }
+    // Wait for the script to load
+    const existing = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
+    if (existing) {
+      existing.addEventListener('load', () => setupTokenClient(resolve));
+    } else {
       const script = document.createElement('script');
       script.src = 'https://accounts.google.com/gsi/client';
       script.onload = () => setupTokenClient(resolve);
       document.head.appendChild(script);
-    } else {
-      setupTokenClient(resolve);
     }
   });
 }
