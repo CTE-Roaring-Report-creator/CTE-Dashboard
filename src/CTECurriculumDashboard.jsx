@@ -1424,13 +1424,8 @@ useEffect(() => {
   async function init() {
     try {
       await initGoogleAuth();
-      const silentOk = await signIn();
-      if (silentOk) {
-        setDriveReady(true);
-        await loadAllCurricula();
-      }
     } catch(e) {
-      console.error('[CTE] init failed:', e);
+      console.error('[CTE] initGoogleAuth failed:', e);
     } finally {
       setLoading(false);
     }
