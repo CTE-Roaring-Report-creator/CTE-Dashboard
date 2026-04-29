@@ -13,8 +13,6 @@ import {
   saveStandards,
 } from './driveStorage';
 
-console.log("[CTE] Module loading...");
-
 // ─── SEED DATA ──────────────────────────────────────────────────────────────
 
 const PATHWAYS = [
@@ -1607,39 +1605,15 @@ if (!driveReady && !loading) {
   );
 }
   if (loading) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", 
-                  justifyContent: "center", minHeight: "100vh", background: "#0f1117", 
-                  color: "#fff", gap: 20 }}>
-      <div>DEBUG: loading={String(loading)} driveReady={String(driveReady)}</div>
-      <button onClick={() => setLoading(false)} 
-              style={{ padding: '12px 28px', background: '#1a56c4', color: '#fff', 
-                       border: 'none', borderRadius: 10, fontSize: 16, cursor: 'pointer' }}>
-        Force Past Loading
-      </button>
-    </div>
-  );
-}
-
-if (!driveReady) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", 
-                  justifyContent: "center", minHeight: "100vh", background: "#0f1117", 
-                  color: "#fff", gap: 20 }}>
-      <div>DEBUG: Ready for sign in</div>
-      <button onClick={async () => {
-                setSigningIn(true);
-                const ok = await signIn();
-                if (ok) { setDriveReady(true); setLoading(true); await loadAllCurricula(); setLoading(false); }
-                setSigningIn(false);
-              }}
-              style={{ padding: '12px 28px', background: '#1a56c4', color: '#fff', 
-                       border: 'none', borderRadius: 10, fontSize: 16, cursor: 'pointer' }}>
-        {signingIn ? 'Signing in...' : 'Sign in with Google'}
-      </button>
-    </div>
-  );
-}
+    return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center",
+                    justifyContent: "center", minHeight: "100vh", background: "#0f1117",
+                    color: "#9ca3b8", gap: 16 }}>
+        <div style={{ fontSize: 28, fontWeight: 700, color: "#f0ede8" }}>CTE Curriculum Dashboard</div>
+        <div style={{ fontSize: 15 }}>Loading curriculum...</div>
+      </div>
+    );
+  }
 
   const fallDays = countDays(units, "Fall");
   const springDays = countDays(units, "Spring");
