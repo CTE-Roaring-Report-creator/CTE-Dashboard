@@ -1,6 +1,4 @@
 // ─── GOOGLE DRIVE STORAGE ────────────────────────────────────────────────────
-// Drop-in replacement for localStorage-based storage helpers.
-// Saves all curriculum data as JSON files in a dedicated Google Drive folder.
 
 const CLIENT_ID = '213709302814-4tmdpp7rnc91rd0k7de82cv7hklticvi.apps.googleusercontent.com';
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
@@ -9,7 +7,31 @@ const FOLDER_NAME = 'CTE Dashboard Data';
 let tokenClient = null;
 let accessToken = null;
 let folderId = null;
-let fileIdCache = {}; // filename -> Drive file ID
+let fileIdCache = {};
+
+// ─── SCRIPT LOADER ────────────────────────────────────────────────────────────
+// Waits for window.google to be ready, polling every 100ms up to 10 seconds.
+// Works whether the script is still loading, already loaded, or loads later.
+
+function waitForGoogle(timeoutMs = 10000) {
+  return new Promise((resolve) => {
+    if (window.google?.accounts?.oauth2) {
+      resolve(true);
+      return;
+    }
+    const start = Date.now();
+    const interval = setInterval(() => {
+      if (window.google?.accounts?.oauth2) {
+        clearInterval(interval);
+        resolve(true);
+      } else if (Date.now() - start > timeoutMs) {
+        clearInterval(interval);
+        console.warn('[Drive] Google script never loaded');
+        resolve(false);
+      }
+    }, 100);
+  });
+}
 
 // ─── AUTH ─────────────────────────────────────────────────────────────────────
 
@@ -17,77 +39,45 @@ export function isSignedIn() {
   return !!accessToken;
 }
 
-export function initGoogleAuth() {
+export async function initGoogleAuth() {
+  const loaded = await waitForGoogle();
+  if (!loaded) return false;
+
   return new Promise((resolve) => {
-    // Timeout after 3 seconds no matter what
-    const timeout = setTimeout(() => {
-      console.warn('[Drive] initGoogleAuth timed out');
-      resolve(false);
-    }, 3000);
-
-    function finish() {
-      clearTimeout(timeout);
-      setupTokenClient(resolve);
-    }
-
-    if (window.google?.accounts?.oauth2) {
-      finish();
-      return;
-    }
-
-    const existing = document.querySelector('script[src*="accounts.google.com/gsi/client"]');
-    if (existing) {
-      existing.addEventListener('load', finish);
-      existing.addEventListener('error', () => { clearTimeout(timeout); resolve(false); });
-    } else {
-      const script = document.createElement('script');
-      script.src = 'https://accounts.google.com/gsi/client';
-      script.onload = finish;
-      script.onerror = () => { clearTimeout(timeout); resolve(false); };
-      document.head.appendChild(script);
-    }
-  });
-}
-
-function setupTokenClient(resolve) {
-  tokenClient = window.google.accounts.oauth2.initTokenClient({
-    client_id: CLIENT_ID,
-    scope: SCOPES,
-    callback: async (response) => {
-      if (response.error) {
-        console.error('[Drive] Auth error:', response.error);
-        resolve(false);
-        return;
-      }
-      accessToken = response.access_token;
-      // Ensure our folder exists after sign-in
-      await ensureFolder();
-      resolve(true);
-    },
+    tokenClient = window.google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: SCOPES,
+      callback: async (response) => {
+        if (response.error) {
+          console.error('[Drive] Auth error:', response.error);
+          resolve(false);
+          return;
+        }
+        accessToken = response.access_token;
+        await ensureFolder();
+        resolve(true);
+      },
+    });
+    // initTokenClient is synchronous — resolve immediately so
+    // the app can show the sign-in button without waiting
+    resolve(false);
   });
 }
 
 export function signIn() {
   return new Promise((resolve) => {
     if (!tokenClient) {
-      initGoogleAuth().then(() => {
-        tokenClient.callback = async (response) => {
-          if (response.error) { resolve(false); return; }
-          accessToken = response.access_token;
-          await ensureFolder();
-          resolve(true);
-        };
-        tokenClient.requestAccessToken({ prompt: 'consent' });
-      });
-    } else {
-      tokenClient.callback = async (response) => {
-        if (response.error) { resolve(false); return; }
-        accessToken = response.access_token;
-        await ensureFolder();
-        resolve(true);
-      };
-      tokenClient.requestAccessToken({ prompt: '' });
+      resolve(false);
+      return;
     }
+    // Override callback for this specific sign-in attempt
+    tokenClient.callback = async (response) => {
+      if (response.error) { resolve(false); return; }
+      accessToken = response.access_token;
+      await ensureFolder();
+      resolve(true);
+    };
+    tokenClient.requestAccessToken({ prompt: 'select_account' });
   });
 }
 
@@ -105,7 +95,6 @@ export function signOut() {
 async function ensureFolder() {
   if (folderId) return folderId;
 
-  // Search for existing folder
   const res = await driveRequest(
     `https://www.googleapis.com/drive/v3/files?q=name='${FOLDER_NAME}' and mimeType='application/vnd.google-apps.folder' and trashed=false&fields=files(id,name)`
   );
@@ -116,7 +105,6 @@ async function ensureFolder() {
     return folderId;
   }
 
-  // Create folder if it doesn't exist
   const createRes = await driveRequest(
     'https://www.googleapis.com/drive/v3/files',
     {
@@ -169,13 +157,11 @@ async function writeFile(filename, data) {
   const blob = new Blob([content], { type: 'application/json' });
 
   if (fileId) {
-    // Update existing file
     await driveRequest(
       `https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`,
       { method: 'PATCH', body: blob }
     );
   } else {
-    // Create new file
     const meta = { name: filename, parents: [folderId] };
     const form = new FormData();
     form.append('metadata', new Blob([JSON.stringify(meta)], { type: 'application/json' }));
@@ -201,22 +187,17 @@ function driveRequest(url, options = {}) {
 }
 
 // ─── PUBLIC STORAGE API ──────────────────────────────────────────────────────
-// These are drop-in replacements for the original localStorage functions.
 
 export async function loadCurriculum(courseId) {
   if (!isSignedIn()) return null;
-  try {
-    return await readFile(`curriculum-${courseId}.json`);
-  } catch (_) { return null; }
+  try { return await readFile(`curriculum-${courseId}.json`); }
+  catch (_) { return null; }
 }
 
 export async function saveCurriculum(courseId, data) {
   if (!isSignedIn()) return;
-  try {
-    await writeFile(`curriculum-${courseId}.json`, data);
-  } catch (e) {
-    console.error('[Drive] saveCurriculum failed:', e);
-  }
+  try { await writeFile(`curriculum-${courseId}.json`, data); }
+  catch (e) { console.error('[Drive] saveCurriculum failed:', e); }
 }
 
 export async function loadSettings() {
@@ -224,32 +205,23 @@ export async function loadSettings() {
   try {
     const val = await readFile('app-settings.json');
     return val || { selectedCourse: 'intro-tech', mediaYear: 'media-a' };
-  } catch (_) {
-    return { selectedCourse: 'intro-tech', mediaYear: 'media-a' };
-  }
+  } catch (_) { return { selectedCourse: 'intro-tech', mediaYear: 'media-a' }; }
 }
 
 export async function saveSettings(settings) {
   if (!isSignedIn()) return;
-  try {
-    await writeFile('app-settings.json', settings);
-  } catch (e) {
-    console.error('[Drive] saveSettings failed:', e);
-  }
+  try { await writeFile('app-settings.json', settings); }
+  catch (e) { console.error('[Drive] saveSettings failed:', e); }
 }
 
 export async function loadStandards() {
   if (!isSignedIn()) return null;
-  try {
-    return await readFile('custom-standards.json');
-  } catch (_) { return null; }
+  try { return await readFile('custom-standards.json'); }
+  catch (_) { return null; }
 }
 
 export async function saveStandards(standards) {
   if (!isSignedIn()) return;
-  try {
-    await writeFile('custom-standards.json', standards);
-  } catch (e) {
-    console.error('[Drive] saveStandards failed:', e);
-  }
+  try { await writeFile('custom-standards.json', standards); }
+  catch (e) { console.error('[Drive] saveStandards failed:', e); }
 }

@@ -1385,7 +1385,8 @@ function AppInner({ focusedLesson, onLessonFocused, isActive }) {
   const [standards, setStandards] = useState(DEFAULT_STANDARDS);
   const [mediaYear, setMediaYear] = useState("media-a");
   const saveTimer = useRef(null);
-  const focusedLessonRowRef = useRef(null); // ref attached to the highlighted lesson row
+  const focusedLessonRowRef = useRef(null);
+  const importRef = useRef(null);
   const [driveReady, setDriveReady] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
   
@@ -1735,54 +1736,51 @@ if (!driveReady) {
             <button onClick={() => setShowStandardsMgr(true)} style={{ ...btnStyle, padding: "7px 14px", fontSize: 13 }}>
               <Settings size={13} /> Standards
             </button>
+            {/* Hidden file input for import */}
+            <input
+              ref={importRef}
+              type="file"
+              accept=".json"
+              style={{ display: "none" }}
+              onChange={async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                try {
+                  const text = await file.text();
+                  const data = JSON.parse(text);
+                  const baseName = file.name.replace(/\.json$/, '');
+                  const courseId = baseName.replace(/^curriculum-/, '').replace(/-curriculum$/, '');
+                  const allIds = PATHWAYS.flatMap(p => p.courses.map(c => c.id));
+                  if (!allIds.includes(courseId)) {
+                    alert(`Could not match "${file.name}" to a known course.\n\nExpected filename like: intro-tech-curriculum.json`);
+                    return;
+                  }
+                  await saveCurriculum(courseId, data);
+                  setCurricula(c => ({ ...c, [courseId]: data }));
+                  alert(`✓ Imported ${courseId} successfully!`);
+                } catch(err) {
+                  alert('Import failed — make sure this is a valid curriculum JSON file.');
+                }
+                e.target.value = '';
+              }}
+            />
+            {/* Import button */}
+            <button onClick={() => importRef.current?.click()} style={{ ...btnStyle, padding: "7px 14px", fontSize: 13 }}>
+              <Download size={13} /> Import
+            </button>
+            {/* Export dropdown */}
             <div style={{ position: "relative" }}>
               <button onClick={() => setShowExportMenu(e => !e)} onBlur={e => { if (!e.currentTarget.parentElement.contains(e.relatedTarget)) setShowExportMenu(false); }} style={{ ...btnStyle, padding: "7px 14px", fontSize: 13, background: showExportMenu ? pathwayColor + "18" : undefined, color: showExportMenu ? pathwayColor : undefined, borderColor: showExportMenu ? pathwayColor : undefined }}>
-                <Download size={13} /> Export
+                <FileText size={13} /> Export
               </button>
               {showExportMenu && (
                 <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", background: "#1e2436", border: "1.5px solid #2a3050", borderRadius: 10, boxShadow: "0 8px 32px rgba(0,0,0,0.6)", zIndex: 200, minWidth: 200, overflow: "hidden" }}>
                   <button onClick={() => { exportCurriculumJSON(course, pathway, units); setShowExportMenu(false); }} onMouseEnter={e => e.currentTarget.style.background="#252b40"} onMouseLeave={e => e.currentTarget.style.background="none"} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#f0ede8", borderBottom: "1px solid #2a3050", textAlign: "left" }}>
                     <Download size={14} color="#1a56c4" /> Export as JSON
                   </button>
-                  <button onClick={() => { exportCurriculumText(course, pathway, units); setShowExportMenu(false); }} onMouseEnter={e => e.currentTarget.style.background="#252b40"} onMouseLeave={e => e.currentTarget.style.background="none"} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#f0ede8", borderBottom: "1px solid #2a3050", textAlign: "left" }}>
+                  <button onClick={() => { exportCurriculumText(course, pathway, units); setShowExportMenu(false); }} onMouseEnter={e => e.currentTarget.style.background="#252b40"} onMouseLeave={e => e.currentTarget.style.background="none"} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#f0ede8", textAlign: "left" }}>
                     <FileText size={14} color="#166534" /> Export as Text Outline
                   </button>
-                  <label 
-  onMouseDown={e => e.stopPropagation()}
-  onMouseEnter={e => e.currentTarget.style.background="#252b40"} 
-  onMouseLeave={e => e.currentTarget.style.background="none"} 
-  style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", 
-           padding: "12px 16px", background: "none", cursor: "pointer", 
-           fontSize: 14, color: "#f0ede8", textAlign: "left", boxSizing: "border-box" }}>
-  <Download size={14} color="#7c3aed" /> Import JSON
-  <input
-    type="file"
-    accept=".json"
-    style={{ display: "none" }}
-    onMouseDown={e => e.stopPropagation()}
-    onChange={async (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      try {
-        const text = await file.text();
-        const data = JSON.parse(text);
-        const courseId = file.name.replace(/^curriculum-/, '').replace(/\.json$/, '');
-        const allIds = PATHWAYS.flatMap(p => p.courses.map(c => c.id));
-        if (!allIds.includes(courseId)) {
-          alert(`Could not match "${file.name}" to a known course.\n\nExpected filename like: curriculum-intro-tech.json`);
-          return;
-        }
-        await saveCurriculum(courseId, data);
-        setCurricula(c => ({ ...c, [courseId]: data }));
-        setShowExportMenu(false);
-        alert(`✓ Imported ${courseId} successfully!`);
-      } catch(err) {
-        alert('Import failed — make sure this is a valid curriculum JSON file.');
-      }
-      e.target.value = '';
-    }}
-  />
-</label>
                 </div>
               )}
             </div>
