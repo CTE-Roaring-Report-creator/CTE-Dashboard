@@ -1,5 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
+  loadWeeklyData, saveWeeklyData,
+  loadCalendarConfig, saveCalendarConfig,
+  loadMapping, saveMapping,
+  loadSubDays, saveSubDays,
+} from './driveStorage';
+import {
   ChevronLeft, ChevronRight, Calendar, Clock, BookOpen,
   X, Check, SkipForward, Play, AlertTriangle, Settings,
   Plus, Trash2, Edit2, User, ExternalLink
@@ -77,78 +83,7 @@ const inputStyle = {
   outline: "none", fontFamily: "inherit",
 };
 
-// ─── STORAGE HELPERS ─────────────────────────────────────────────────────────
-
-
-function loadWeeklyData(courseId) {
-  try {
-    const val = localStorage.getItem(`weekly-data:${courseId}`);
-    if (val) return JSON.parse(val);
-  } catch (_) {}
-  return {};
-}
-
-function saveWeeklyData(courseId, data) {
-  try {
-    localStorage.setItem(`weekly-data:${courseId}`, JSON.stringify(data));
-  } catch (_) {}
-}
-
-function loadCalendarConfig() {
-  try {
-    const val = localStorage.getItem("calendar-config");
-    if (val) return JSON.parse(val);
-  } catch (_) {}
-  return null;
-}
-
-function saveCalendarConfig(config) {
-  try {
-    localStorage.setItem("calendar-config", JSON.stringify(config));
-  } catch (_) {}
-}
-
-function loadMapping(courseId) {
-  try {
-    const val = localStorage.getItem(`lesson-mapping:${courseId}`);
-    if (val) return JSON.parse(val);
-  } catch (_) {}
-  return null;
-}
-
-function saveMapping(courseId, data) {
-  try {
-    localStorage.setItem(`lesson-mapping:${courseId}`, JSON.stringify(data));
-  } catch (_) {}
-}
-
-function loadSubDays() {
-  try {
-    const val = localStorage.getItem("sub-days");
-    if (val) return JSON.parse(val);
-  } catch (_) {}
-  return {};
-}
-
-function saveSubDays(data) {
-  try {
-    localStorage.setItem("sub-days", JSON.stringify(data));
-  } catch (_) {}
-}
-
-function loadSettings() {
-  try {
-    const val = localStorage.getItem("app-settings");
-    if (val) return JSON.parse(val);
-  } catch (_) {}
-  return { selectedCourse: "intro-tech" };
-}
-
-function saveSettings(s) {
-  try {
-    localStorage.setItem("app-settings", JSON.stringify(s));
-  } catch (_) {}
-}
+// ─── STORAGE HELPERS — now backed by Google Drive (imported above) ────────────
 
 // ─── BELL RINGER HELPER (mirrors Phase 2) ────────────────────────────────────
 
@@ -2282,36 +2217,37 @@ export default function Phase3({ isActive, selectedCourse: selectedCourseProp, c
   }, [selectedCourseProp]);
 
   useEffect(() => {
-    setLoading(true);
-    // Curriculum comes from the curricula prop (loaded by Phase 1 from Drive)
-    const cur = curricula[selectedCourse] || null;
-    const mapData = loadMapping(selectedCourse);
-    const wd = loadWeeklyData(selectedCourse);
-    const cc = loadCalendarConfig();
-    setCurriculum(cur);
-    setMapping(mapData ? mapData.mapping : null);
-    setOverflow(mapData ? (mapData.overflow || []) : []);
-    setWeeklyData(wd);
-    setCalendarConfig(cc);
-    setSubDays(loadSubDays());
-    setLoading(false);
+    async function load() {
+      setLoading(true);
+      const cur = curricula[selectedCourse] || null;
+      const mapData = await loadMapping(selectedCourse);
+      const wd = await loadWeeklyData(selectedCourse);
+      const cc = await loadCalendarConfig();
+      setCurriculum(cur);
+      setMapping(mapData ? mapData.mapping : null);
+      setOverflow(mapData ? (mapData.overflow || []) : []);
+      setWeeklyData(wd);
+      setCalendarConfig(cc);
+      setSubDays(await loadSubDays());
+      setLoading(false);
+    }
+    load();
   }, [selectedCourse, curricula]);
 
   // ── Re-read curriculum and weeklyData whenever the user returns to Phase 3
   //    Covers: switching back from Phase 1/2, refocusing the browser tab
   useEffect(() => {
-    const refresh = () => {
-      // Curriculum comes from prop — just refresh calendar-specific data
+    const refresh = async () => {
       const cur = curricula[selectedCourse] || null;
       if (cur) setCurriculum(cur);
-      const wd = loadWeeklyData(selectedCourse);
+      const wd = await loadWeeklyData(selectedCourse);
       setWeeklyData(wd);
-      const mapData = loadMapping(selectedCourse);
+      const mapData = await loadMapping(selectedCourse);
       if (mapData) {
         setMapping(mapData.mapping || null);
         setOverflow(mapData.overflow || []);
       }
-      setSubDays(loadSubDays());
+      setSubDays(await loadSubDays());
     };
     const onVisibility = () => { if (document.visibilityState === "visible") refresh(); };
     window.addEventListener("focus", refresh);
@@ -2322,20 +2258,21 @@ export default function Phase3({ isActive, selectedCourse: selectedCourseProp, c
     };
   }, [selectedCourse, curricula]);
 
-  // ── Also refresh whenever Phase 3 becomes the active tab
   useEffect(() => {
     if (!isActive) return;
-    // Curriculum comes from prop — refresh calendar-specific data only
-    const cur = curricula[selectedCourse] || null;
-    if (cur) setCurriculum(cur);
-    const wd = loadWeeklyData(selectedCourse);
-    setWeeklyData(wd);
-    const mapData = loadMapping(selectedCourse);
-    if (mapData) {
-      setMapping(mapData.mapping || null);
-      setOverflow(mapData.overflow || []);
+    async function refresh() {
+      const cur = curricula[selectedCourse] || null;
+      if (cur) setCurriculum(cur);
+      const wd = await loadWeeklyData(selectedCourse);
+      setWeeklyData(wd);
+      const mapData = await loadMapping(selectedCourse);
+      if (mapData) {
+        setMapping(mapData.mapping || null);
+        setOverflow(mapData.overflow || []);
+      }
+      setSubDays(await loadSubDays());
     }
-    setSubDays(loadSubDays());
+    refresh();
   }, [isActive, selectedCourse, curricula]);
 
   // ── Select course — notify App so Phase 2 stays in sync

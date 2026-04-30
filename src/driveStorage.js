@@ -236,3 +236,59 @@ export async function saveStandards(standards) {
   try { await writeFile('custom-standards.json', standards); }
   catch (e) { console.error('[Drive] saveStandards failed:', e); }
 }
+
+// ─── WEEKLY DATA ──────────────────────────────────────────────────────────────
+
+export async function loadWeeklyData(courseId) {
+  if (!isSignedIn()) return {};
+  try { return await readFile(`weekly-data-${courseId}.json`) || {}; }
+  catch (_) { return {}; }
+}
+
+export async function saveWeeklyData(courseId, data) {
+  if (!isSignedIn()) return;
+  try { await writeFile(`weekly-data-${courseId}.json`, data); }
+  catch (e) { console.error('[Drive] saveWeeklyData failed:', e); }
+}
+
+// ─── CALENDAR CONFIG ──────────────────────────────────────────────────────────
+
+export async function loadCalendarConfig() {
+  if (!isSignedIn()) return null;
+  try { return await readFile('calendar-config.json'); }
+  catch (_) { return null; }
+}
+
+export async function saveCalendarConfig(config) {
+  if (!isSignedIn()) return;
+  try { await writeFile('calendar-config.json', config); }
+  catch (e) { console.error('[Drive] saveCalendarConfig failed:', e); }
+}
+
+// ─── LESSON MAPPING ───────────────────────────────────────────────────────────
+
+export async function loadMapping(courseId) {
+  if (!isSignedIn()) return null;
+  try { return await readFile(`lesson-mapping-${courseId}.json`); }
+  catch (_) { return null; }
+}
+
+export async function saveMapping(courseId, data) {
+  if (!isSignedIn()) return;
+  try { await writeFile(`lesson-mapping-${courseId}.json`, data); }
+  catch (e) { console.error('[Drive] saveMapping failed:', e); }
+}
+
+// ─── SUB DAYS ─────────────────────────────────────────────────────────────────
+
+export async function loadSubDays() {
+  if (!isSignedIn()) return {};
+  try { return await readFile('sub-days.json') || {}; }
+  catch (_) { return {}; }
+}
+
+export async function saveSubDays(data) {
+  if (!isSignedIn()) return;
+  try { await writeFile('sub-days.json', data); }
+  catch (e) { console.error('[Drive] saveSubDays failed:', e); }
+}

@@ -1,5 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
+  loadWeeklyData, saveWeeklyData,
+  loadCalendarConfig, saveCalendarConfig,
+  loadMapping, saveMapping,
+  loadSubDays, saveSubDays,
+} from './driveStorage';
+import {
   ChevronLeft, ChevronRight, Calendar, Clock, BookOpen,
   ExternalLink, X, ChevronDown, ChevronUp, MessageSquare,
   Check, SkipForward, Play, AlertTriangle, Settings,
@@ -92,72 +98,7 @@ const inputStyle = {
   outline: "none", fontFamily: "inherit",
 };
 
-// ─── STORAGE HELPERS ─────────────────────────────────────────────────────────
-
-
-async function loadWeeklyData(courseId) {
-  try {
-    const val = localStorage.getItem(`weekly-data:${courseId}`);
-    if (val) return JSON.parse(val);
-  } catch (_) {}
-  return {};
-}
-
-async function saveWeeklyData(courseId, data) {
-  try {
-    localStorage.setItem(`weekly-data:${courseId}`, JSON.stringify(data));
-  } catch (_) {}
-}
-
-async function loadCalendarConfig() {
-  try {
-    const val = localStorage.getItem("calendar-config");
-    if (val) return JSON.parse(val);
-  } catch (_) {}
-  return null;
-}
-
-async function saveCalendarConfig(config) {
-  try {
-    localStorage.setItem("calendar-config", JSON.stringify(config));
-  } catch (_) {}
-}
-
-async function loadMapping(courseId) {
-  try {
-    const val = localStorage.getItem(`lesson-mapping:${courseId}`);
-    if (val) return JSON.parse(val);
-  } catch (_) {}
-  return null;
-}
-
-async function saveMapping(courseId, mapping) {
-  try {
-    localStorage.setItem(`lesson-mapping:${courseId}`, JSON.stringify(mapping));
-  } catch (_) {}
-}
-
-function loadSubDays() {
-  try {
-    const val = localStorage.getItem("sub-days");
-    if (val) return JSON.parse(val);
-  } catch (_) {}
-  return {};
-}
-
-function saveSubDays(data) {
-  try {
-    localStorage.setItem("sub-days", JSON.stringify(data));
-  } catch (_) {}
-}
-
-async function loadSettings() {
-  try {
-    const val = localStorage.getItem("app-settings");
-    if (val) return JSON.parse(val);
-  } catch (_) {}
-  return { selectedCourse: "intro-tech" };
-}
+// ─── STORAGE HELPERS — now backed by Google Drive (imported above) ────────────
 
 // ─── UTILITIES ───────────────────────────────────────────────────────────────
 
@@ -1162,7 +1103,7 @@ export default function Phase2({ isActive, calendarVersion, selectedCourse: sele
       setCurricula(prev => ({ ...prev, ...newLoaded }));
       setMappings(newMaps);
       setOverflows(newOvfls);
-      setSubDays(loadSubDays());
+      setSubDays(await loadSubDays());
     }
     sync();
   }, [isActive, calendarVersion]);
@@ -1216,7 +1157,7 @@ export default function Phase2({ isActive, calendarVersion, selectedCourse: sele
       setCalendarConfig(sharedConfig);
       setMappings(maps);
       setOverflows(ovfl);
-      setSubDays(loadSubDays());
+      setSubDays(await loadSubDays());
       setLoading(false);
     }
     init();
