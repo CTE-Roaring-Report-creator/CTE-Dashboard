@@ -1380,7 +1380,8 @@ function AppInner({ focusedLesson, onLessonFocused, isActive }) {
   const [filter, setFilter] = useState("all"); // all | Fall | Spring
   const [addingUnit, setAddingUnit] = useState(false);
   const [showStandardsMgr, setShowStandardsMgr] = useState(false);
-  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [showExportMenu, setShowExportMenu] = useState(false); // kept for compatibility
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   const [standards, setStandards] = useState(DEFAULT_STANDARDS);
   const [mediaYear, setMediaYear] = useState("media-a");
   const saveTimer = useRef(null);
@@ -1582,7 +1583,7 @@ async function handleSaveStandards(list) {
   }
 if (!driveReady && !loading) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', 
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center',
                   justifyContent: 'center', height: '100vh', background: '#0f1117', gap: 20 }}>
       <div style={{ fontSize: 28, fontWeight: 700, color: '#f0ede8' }}>CTE Curriculum Dashboard</div>
       <div style={{ fontSize: 15, color: '#9ca3b8' }}>Sign in with Google to load your curriculum</div>
@@ -1598,7 +1599,7 @@ if (!driveReady && !loading) {
           }
           setSigningIn(false);
         }}
-        style={{ padding: '12px 28px', borderRadius: 10, background: '#1a56c4', 
+        style={{ padding: '12px 28px', borderRadius: 10, background: '#1a56c4',
                  color: '#fff', border: 'none', fontSize: 16, fontWeight: 600, cursor: 'pointer' }}
       >
         {signingIn ? 'Signing in...' : 'Sign in with Google'}
@@ -1606,6 +1607,7 @@ if (!driveReady && !loading) {
     </div>
   );
 }
+
   if (loading) {
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center",
@@ -1709,9 +1711,6 @@ if (!driveReady && !loading) {
             <button onClick={() => setShowSearch(s => !s)} style={{ ...btnStyle, padding: "7px 14px", fontSize: 13, background: showSearch ? pathwayColor + "18" : undefined, color: showSearch ? pathwayColor : undefined, borderColor: showSearch ? pathwayColor : undefined }}>
               <Search size={13} /> Search
             </button>
-            <button onClick={() => setShowStandardsMgr(true)} style={{ ...btnStyle, padding: "7px 14px", fontSize: 13 }}>
-              <Settings size={13} /> Standards
-            </button>
             {/* Hidden file input for import */}
             <input
               ref={importRef}
@@ -1723,7 +1722,7 @@ if (!driveReady && !loading) {
                 if (!file) return;
                 try {
                   const text = await file.text();
-                  const data = JSON.parse(text);
+                  const raw = JSON.parse(text);
                   const baseName = file.name.replace(/\.json$/, '');
                   const courseId = baseName.replace(/^curriculum-/, '').replace(/-curriculum$/, '');
                   const allIds = PATHWAYS.flatMap(p => p.courses.map(c => c.id));
@@ -1731,86 +1730,116 @@ if (!driveReady && !loading) {
                     alert(`Could not match "${file.name}" to a known course.\n\nExpected filename like: intro-tech-curriculum.json`);
                     return;
                   }
+                  const importedUnits = (Array.isArray(raw) ? raw : raw.units || []).map(u => ({
+                    ...u,
+                    id: u.id || `unit-${Math.random().toString(36).slice(2,9)}`,
+                    lessons: (u.lessons || []).map(l => ({
+                      ...l,
+                      id: l.id || `lesson-${Math.random().toString(36).slice(2,9)}`,
+                    }))
+                  }));
+                  const data = { units: importedUnits };
                   await saveCurriculum(courseId, data);
                   setCurricula(c => ({ ...c, [courseId]: data }));
-                  alert(`✓ Imported ${courseId} successfully!`);
+                  setShowOptionsMenu(false);
+                  alert(`✓ Imported ${courseId} successfully! ${importedUnits.length} units loaded.`);
                 } catch(err) {
                   alert('Import failed — make sure this is a valid curriculum JSON file.');
                 }
                 e.target.value = '';
               }}
             />
-            {/* Import button */}
-            <button onClick={() => importRef.current?.click()} style={{ ...btnStyle, padding: "7px 14px", fontSize: 13 }}>
-              <Download size={13} /> Import
-            </button>
-            {/* Export dropdown */}
+            {/* Options menu */}
             <div style={{ position: "relative" }}>
-              <button onClick={() => setShowExportMenu(e => !e)} onBlur={e => { if (!e.currentTarget.parentElement.contains(e.relatedTarget)) setShowExportMenu(false); }} style={{ ...btnStyle, padding: "7px 14px", fontSize: 13, background: showExportMenu ? pathwayColor + "18" : undefined, color: showExportMenu ? pathwayColor : undefined, borderColor: showExportMenu ? pathwayColor : undefined }}>
-                <FileText size={13} /> Export
+              <button
+                onClick={() => setShowOptionsMenu(o => !o)}
+                onBlur={e => { if (!e.currentTarget.parentElement.contains(e.relatedTarget)) setShowOptionsMenu(false); }}
+                style={{ ...btnStyle, padding: "7px 14px", fontSize: 13, background: showOptionsMenu ? pathwayColor + "18" : undefined, color: showOptionsMenu ? pathwayColor : undefined, borderColor: showOptionsMenu ? pathwayColor : undefined }}
+              >
+                <Settings size={13} /> Options
               </button>
-              {showExportMenu && (
-                <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", background: "#1e2436", border: "1.5px solid #2a3050", borderRadius: 10, boxShadow: "0 8px 32px rgba(0,0,0,0.6)", zIndex: 200, minWidth: 200, overflow: "hidden" }}>
-                  <button onClick={() => { exportCurriculumJSON(course, pathway, units); setShowExportMenu(false); }} onMouseEnter={e => e.currentTarget.style.background="#252b40"} onMouseLeave={e => e.currentTarget.style.background="none"} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#f0ede8", borderBottom: "1px solid #2a3050", textAlign: "left" }}>
+              {showOptionsMenu && (
+                <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", background: "#1e2436", border: "1.5px solid #2a3050", borderRadius: 10, boxShadow: "0 8px 32px rgba(0,0,0,0.6)", zIndex: 200, minWidth: 220, overflow: "hidden" }}>
+                  {/* Save */}
+                  <button
+                    onClick={async () => {
+                      setShowOptionsMenu(false);
+                      setSaveStatus('saving');
+                      const doSave = async () => {
+                        await saveCurriculum(selectedCourse, { units });
+                        await saveSettings({ selectedCourse, mediaYear });
+                      };
+                      try {
+                        if (!isSignedIn()) {
+                          const ok = await signIn();
+                          if (!ok) { setSaveStatus('error'); setTimeout(() => setSaveStatus('idle'), 3000); return; }
+                        }
+                        await doSave();
+                        setSaveStatus('saved');
+                        setTimeout(() => setSaveStatus('idle'), 2500);
+                      } catch(e) {
+                        try {
+                          const ok = await signIn();
+                          if (ok) { await doSave(); setSaveStatus('saved'); setTimeout(() => setSaveStatus('idle'), 2500); }
+                          else { setSaveStatus('error'); setTimeout(() => setSaveStatus('idle'), 3000); }
+                        } catch(_) { setSaveStatus('error'); setTimeout(() => setSaveStatus('idle'), 3000); }
+                      }
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background="#252b40"} onMouseLeave={e => e.currentTarget.style.background="none"}
+                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: saveStatus === 'saved' ? '#4ade80' : saveStatus === 'error' ? '#f87171' : "#f0ede8", borderBottom: "1px solid #2a3050", textAlign: "left" }}
+                  >
+                    <Check size={14} color={saveStatus === 'saved' ? '#4ade80' : saveStatus === 'error' ? '#f87171' : '#1a56c4'} />
+                    {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved!' : saveStatus === 'error' ? 'Save Failed' : 'Save to Drive'}
+                  </button>
+                  {/* Standards */}
+                  <button
+                    onClick={() => { setShowStandardsMgr(true); setShowOptionsMenu(false); }}
+                    onMouseEnter={e => e.currentTarget.style.background="#252b40"} onMouseLeave={e => e.currentTarget.style.background="none"}
+                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#f0ede8", borderBottom: "1px solid #2a3050", textAlign: "left" }}
+                  >
+                    <Settings size={14} color="#7c3aed" /> Manage Standards
+                  </button>
+                  {/* Import */}
+                  <button
+                    onClick={() => importRef.current?.click()}
+                    onMouseEnter={e => e.currentTarget.style.background="#252b40"} onMouseLeave={e => e.currentTarget.style.background="none"}
+                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#f0ede8", borderBottom: "1px solid #2a3050", textAlign: "left" }}
+                  >
+                    <Download size={14} color="#0891b2" /> Import JSON
+                  </button>
+                  {/* Export JSON */}
+                  <button
+                    onClick={() => { exportCurriculumJSON(course, pathway, units); setShowOptionsMenu(false); }}
+                    onMouseEnter={e => e.currentTarget.style.background="#252b40"} onMouseLeave={e => e.currentTarget.style.background="none"}
+                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#f0ede8", borderBottom: "1px solid #2a3050", textAlign: "left" }}
+                  >
                     <Download size={14} color="#1a56c4" /> Export as JSON
                   </button>
-                  <button onClick={() => { exportCurriculumText(course, pathway, units); setShowExportMenu(false); }} onMouseEnter={e => e.currentTarget.style.background="#252b40"} onMouseLeave={e => e.currentTarget.style.background="none"} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#f0ede8", textAlign: "left" }}>
+                  {/* Export Text */}
+                  <button
+                    onClick={() => { exportCurriculumText(course, pathway, units); setShowOptionsMenu(false); }}
+                    onMouseEnter={e => e.currentTarget.style.background="#252b40"} onMouseLeave={e => e.currentTarget.style.background="none"}
+                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#f0ede8", borderBottom: "1px solid #2a3050", textAlign: "left" }}
+                  >
                     <FileText size={14} color="#166534" /> Export as Text Outline
+                  </button>
+                  {/* Reset */}
+                  <button
+                    onClick={() => { setShowResetConfirm(true); setShowOptionsMenu(false); }}
+                    onMouseEnter={e => e.currentTarget.style.background="#252b40"} onMouseLeave={e => e.currentTarget.style.background="none"}
+                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#f87171", textAlign: "left" }}
+                  >
+                    <RotateCcw size={14} color="#f87171" /> Reset to Default
                   </button>
                 </div>
               )}
             </div>
-            {/* Save button with token refresh */}
-            <button
-              onClick={async () => {
-                setSaveStatus('saving');
-                const doSave = async () => {
-                  await saveCurriculum(selectedCourse, { units });
-                  await saveSettings({ selectedCourse, mediaYear });
-                };
-                try {
-                  if (!isSignedIn()) {
-                    const ok = await signIn();
-                    if (!ok) { setSaveStatus('error'); setTimeout(() => setSaveStatus('idle'), 3000); return; }
-                  }
-                  await doSave();
-                  setSaveStatus('saved');
-                  setTimeout(() => setSaveStatus('idle'), 2500);
-                } catch(e) {
-                  try {
-                    const ok = await signIn();
-                    if (ok) {
-                      await doSave();
-                      setSaveStatus('saved');
-                      setTimeout(() => setSaveStatus('idle'), 2500);
-                    } else {
-                      setSaveStatus('error');
-                      setTimeout(() => setSaveStatus('idle'), 3000);
-                    }
-                  } catch(_) {
-                    setSaveStatus('error');
-                    setTimeout(() => setSaveStatus('idle'), 3000);
-                  }
-                }
-              }}
-              disabled={saveStatus === 'saving'}
-              style={{
-                ...btnStyle,
-                padding: "7px 14px",
-                fontSize: 13,
-                background: saveStatus === 'saved' ? '#14532d' : saveStatus === 'error' ? '#7f1d1d' : saveStatus === 'saving' ? '#1e2436' : '#1a56c4',
-                color: saveStatus === 'idle' ? '#fff' : saveStatus === 'saving' ? '#5a6380' : '#fff',
-                borderColor: saveStatus === 'saved' ? '#166534' : saveStatus === 'error' ? '#991b1b' : saveStatus === 'saving' ? '#2a3050' : '#1a56c4',
-                cursor: saveStatus === 'saving' ? 'not-allowed' : 'pointer',
-                transition: 'all 0.2s',
-              }}
-            >
-              <Check size={13} />
-              {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved!' : saveStatus === 'error' ? 'Save Failed' : 'Save'}
-            </button>
-            <button onClick={() => setShowResetConfirm(true)} style={{ ...btnStyle, padding: "7px 14px", fontSize: 13, color: "var(--color-text-secondary)" }}>
-              <RotateCcw size={13} /> Reset
-            </button>
+            {/* Save status indicator — shows outside menu so it's always visible */}
+            {saveStatus !== 'idle' && (
+              <span style={{ fontSize: 12, color: saveStatus === 'saved' ? '#4ade80' : saveStatus === 'error' ? '#f87171' : '#9ca3b8', fontWeight: 600 }}>
+                {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? '✓ Saved' : '✗ Save Failed'}
+              </span>
+            )}
           </div>
         </div>
 

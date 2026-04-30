@@ -55,13 +55,24 @@ export async function initGoogleAuth() {
         }
         accessToken = response.access_token;
         await ensureFolder();
+        // Auto-refresh token every 45 min (expires after 60 min)
+        setTimeout(() => refreshToken(), 45 * 60 * 1000);
         resolve(true);
       },
     });
-    // initTokenClient is synchronous — resolve immediately so
-    // the app can show the sign-in button without waiting
     resolve(false);
   });
+}
+
+function refreshToken() {
+  if (!tokenClient) return;
+  tokenClient.callback = async (response) => {
+    if (!response.error) {
+      accessToken = response.access_token;
+      setTimeout(() => refreshToken(), 45 * 60 * 1000);
+    }
+  };
+  tokenClient.requestAccessToken({ prompt: '' });
 }
 
 export function signIn() {
@@ -70,14 +81,14 @@ export function signIn() {
       resolve(false);
       return;
     }
-    // Override callback for this specific sign-in attempt
     tokenClient.callback = async (response) => {
       if (response.error) { resolve(false); return; }
       accessToken = response.access_token;
       await ensureFolder();
       resolve(true);
     };
-    tokenClient.requestAccessToken({ prompt: 'select_account' });
+    // Use 'consent' when we have no token (expired), '' for silent refresh
+    tokenClient.requestAccessToken({ prompt: accessToken ? '' : 'consent' });
   });
 }
 
