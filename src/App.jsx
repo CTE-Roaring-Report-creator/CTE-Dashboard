@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import Phase1 from "./CTECurriculumDashboard";
 import Phase2 from "./Phase2";
 import Phase3 from "./Phase3.jsx";
@@ -31,8 +31,18 @@ export default function App() {
   const [selectedCourse, setSelectedCourse] = useState(() => loadSettingsSync().selectedCourse || "intro-tech");
   const [mediaYear, setMediaYear]           = useState(() => loadSettingsSync().mediaYear    || "media-a");
 
-  // Lifted curricula state — Phase 1 populates this, Phase 3 reads from it
+  // Lifted curricula state — Phase 1 populates this, Phase 2 and 3 read from it
   const [curricula, setCurricula] = useState({});
+
+  // Called by Phase 2 when bell ringers are edited — saves back to Drive
+  const handleCurriculaChange = useCallback(async (newCurricula) => {
+    setCurricula(newCurricula);
+    // Save each changed course back to Drive
+    const { saveCurriculum } = await import('./driveStorage');
+    for (const [courseId, data] of Object.entries(newCurricula)) {
+      await saveCurriculum(courseId, data);
+    }
+  }, []);
 
   // Keep app-settings in sync whenever course changes
   useEffect(() => {
@@ -81,6 +91,8 @@ export default function App() {
           calendarVersion={calendarVersion}
           selectedCourse={selectedCourse}
           mediaYear={mediaYear}
+          curricula={curricula}
+          onCurriculaChange={handleCurriculaChange}
           onCourseChange={handleCourseChange}
           focusedWeek={focusedWeekRef.current}
           onWeekFocused={() => { focusedWeekRef.current = null; }}

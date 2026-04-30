@@ -94,13 +94,6 @@ const inputStyle = {
 
 // ─── STORAGE HELPERS ─────────────────────────────────────────────────────────
 
-async function loadCurriculum(courseId) {
-  try {
-    const val = localStorage.getItem(`master-curriculum:${courseId}`);
-    if (val) return JSON.parse(val);
-  } catch (_) {}
-  return null;
-}
 
 async function loadWeeklyData(courseId) {
   try {
@@ -1097,9 +1090,9 @@ function WeeklyBellRingers({ weekDates, mapping, lessonMap, niSet, pathwayColor 
 
 // ─── MAIN PHASE 2 COMPONENT ──────────────────────────────────────────────────
 
-export default function Phase2({ isActive, calendarVersion, selectedCourse: selectedCourseProp, onCourseChange, focusedWeek, onWeekFocused }) {
+export default function Phase2({ isActive, calendarVersion, selectedCourse: selectedCourseProp, onCourseChange, focusedWeek, onWeekFocused, curricula: curriculaProp = {}, onCurriculaChange }) {
   const [selectedCourse, setSelectedCourse] = useState(selectedCourseProp || "intro-tech");
-  const [curricula, setCurricula] = useState({});
+  const [curricula, setCurricula] = useState(curriculaProp);
   const [weeklyDataMap, setWeeklyDataMap] = useState({});
   const [calendarConfig, setCalendarConfig] = useState(null);
   const [mappings, setMappings] = useState({});
@@ -1135,6 +1128,13 @@ export default function Phase2({ isActive, calendarVersion, selectedCourse: sele
     }
   }, [selectedCourseProp]);
 
+  // ── Sync curricula from prop (loaded by Phase 1 from Drive)
+  useEffect(() => {
+    if (curriculaProp && Object.keys(curriculaProp).length > 0) {
+      setCurricula(curriculaProp);
+    }
+  }, [curriculaProp]);
+
   // ── Re-read calendarConfig, curricula and mappings when Phase 2 becomes active
   //    OR when Phase 3 signals a calendar save via calendarVersion bump
   useEffect(() => {
@@ -1144,7 +1144,8 @@ export default function Phase2({ isActive, calendarVersion, selectedCourse: sele
       const newLoaded = {}, newMaps = {}, newOvfls = {};
       for (const p of PATHWAYS) {
         for (const c of p.courses) {
-          newLoaded[c.id] = await loadCurriculum(c.id) || { units: [] };
+          // Curriculum comes from prop
+          newLoaded[c.id] = curriculaProp[c.id] || curricula[c.id] || { units: [] };
           const rawMap = await loadMapping(c.id);
           if (rawMap?.mapping) {
             newMaps[c.id] = rawMap.mapping;
@@ -1195,7 +1196,8 @@ export default function Phase2({ isActive, calendarVersion, selectedCourse: sele
       const loaded = {}, wdMap = {}, configs = {}, maps = {}, ovfl = {};
       for (const p of PATHWAYS) {
         for (const c of p.courses) {
-          loaded[c.id] = await loadCurriculum(c.id) || { units: [] };
+          // Curriculum comes from prop (loaded by Phase 1 from Drive)
+          loaded[c.id] = curriculaProp[c.id] || { units: [] };
           wdMap[c.id] = await loadWeeklyData(c.id) || {};
           const rawMap = await loadMapping(c.id);
           if (rawMap?.mapping) {
@@ -1280,34 +1282,35 @@ export default function Phase2({ isActive, calendarVersion, selectedCourse: sele
     }));
   };
 
-  // ── Bell ringer inline edit — writes back to master-curriculum
+  // ── Bell ringer inline edit — writes back to Drive via onCurriculaChange
   const handleBellRingerChange = (lesson, dayIndex, newText) => {
     try {
-      const raw = localStorage.getItem(`master-curriculum:${selectedCourse}`);
-      if (!raw) return;
-      const curriculum = JSON.parse(raw);
+      const curriculum = curricula[selectedCourse];
+      if (!curriculum) return;
       let updated = false;
-      for (const unit of curriculum.units || []) {
-        const l = unit.lessons?.find(l => l.id === lesson.id);
-        if (l) {
-          // Migrate legacy single bellRinger string to array if needed
-          if (!Array.isArray(l.bellRingers)) {
-            l.bellRingers = Array.from({ length: l.estimatedDays || 1 }, (_, i) =>
-              i === 0 && l.bellRinger ? l.bellRinger : ""
-            );
-            delete l.bellRinger;
-          }
-          // Ensure array is long enough
-          while (l.bellRingers.length < dayIndex) l.bellRingers.push("");
-          l.bellRingers[dayIndex - 1] = newText;
-          updated = true;
-          break;
-        }
-      }
+      const newCurriculum = {
+        ...curriculum,
+        units: curriculum.units.map(unit => ({
+          ...unit,
+          lessons: unit.lessons.map(l => {
+            if (l.id !== lesson.id) return l;
+            const bellRingers = Array.isArray(l.bellRingers)
+              ? [...l.bellRingers]
+              : Array.from({ length: l.estimatedDays || 1 }, (_, i) =>
+                  i === 0 && l.bellRinger ? l.bellRinger : ""
+                );
+            while (bellRingers.length < dayIndex) bellRingers.push("");
+            bellRingers[dayIndex - 1] = newText;
+            updated = true;
+            const { bellRinger: _, ...rest } = l;
+            return { ...rest, bellRingers };
+          }),
+        })),
+      };
       if (updated) {
-        localStorage.setItem(`master-curriculum:${selectedCourse}`, JSON.stringify(curriculum));
-        // Reload curricula state so WeeklyBellRingers panel updates immediately
-        setCurricula(prev => ({ ...prev, [selectedCourse]: curriculum }));
+        const next = { ...curricula, [selectedCourse]: newCurriculum };
+        setCurricula(next);
+        if (onCurriculaChange) onCurriculaChange(next);
       }
     } catch (_) {}
   };
@@ -1346,25 +1349,19 @@ export default function Phase2({ isActive, calendarVersion, selectedCourse: sele
   if (!confirm("Regenerate all course schedules from master curriculum? Status and notes are kept.")) return;
   const sd = getSchoolDays(calendarConfig.startDate, calendarConfig.endDate, calendarConfig.nonInstructional);
 
-  // Load fresh curriculum first
-  const reloaded = {};
-  for (const p of PATHWAYS) {
-    for (const c of p.courses) {
-      reloaded[c.id] = await loadCurriculum(c.id) || { units: [] };
-    }
-  }
+  // Use curricula from prop/state (already loaded from Drive by Phase 1)
+  const reloaded = { ...curricula };
 
   // Generate mappings from fresh data
   const newMaps = {}, newOvfls = {};
   for (const p of PATHWAYS) {
     for (const c of p.courses) {
-      const { mapping: m, overflow: o } = generateMapping(reloaded[c.id].units, sd);
+      const { mapping: m, overflow: o } = generateMapping((reloaded[c.id] || { units: [] }).units, sd);
       newMaps[c.id] = m; newOvfls[c.id] = o;
       await saveMapping(c.id, { mapping: m, overflow: o });
     }
   }
 
-  setCurricula(reloaded);
   setMappings(newMaps);
   setOverflows(newOvfls);
 };
@@ -1376,21 +1373,13 @@ export default function Phase2({ isActive, calendarVersion, selectedCourse: sele
     return () => window.removeEventListener("click", close);
   }, []);
 
-  // ── Refresh lesson content from localStorage without touching mappings.
-  //    Called on window focus and course switch so bell ringers / content
-  //    changes in Phase 1 appear immediately without a full Regen.
-  const refreshLessonContent = useCallback(async () => {
-    const reloaded = {};
-    for (const p of PATHWAYS) {
-      for (const c of p.courses) {
-        const fresh = await loadCurriculum(c.id);
-        if (fresh) reloaded[c.id] = fresh;
-      }
+  //    Curriculum is owned by Phase 1/App — just re-sync from prop
+  //    Curriculum is owned by Phase 1/App — just re-sync from prop
+  const refreshLessonContent = useCallback(() => {
+    if (curriculaProp && Object.keys(curriculaProp).length > 0) {
+      setCurricula(curriculaProp);
     }
-    if (Object.keys(reloaded).length > 0) {
-      setCurricula(prev => ({ ...prev, ...reloaded }));
-    }
-  }, []);
+  }, [curriculaProp]);
 
   useEffect(() => {
     const onFocus = () => refreshLessonContent();

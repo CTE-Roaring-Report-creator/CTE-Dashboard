@@ -79,13 +79,6 @@ const inputStyle = {
 
 // ─── STORAGE HELPERS ─────────────────────────────────────────────────────────
 
-function loadCurriculum(courseId) {
-  try {
-    const val = localStorage.getItem(`master-curriculum:${courseId}`);
-    if (val) return JSON.parse(val);
-  } catch (_) {}
-  return null;
-}
 
 function loadWeeklyData(courseId) {
   try {
@@ -2332,7 +2325,8 @@ export default function Phase3({ isActive, selectedCourse: selectedCourseProp, c
   // ── Also refresh whenever Phase 3 becomes the active tab
   useEffect(() => {
     if (!isActive) return;
-    const cur = loadCurriculum(selectedCourse);
+    // Curriculum comes from prop — refresh calendar-specific data only
+    const cur = curricula[selectedCourse] || null;
     if (cur) setCurriculum(cur);
     const wd = loadWeeklyData(selectedCourse);
     setWeeklyData(wd);
@@ -2342,7 +2336,7 @@ export default function Phase3({ isActive, selectedCourse: selectedCourseProp, c
       setOverflow(mapData.overflow || []);
     }
     setSubDays(loadSubDays());
-  }, [isActive, selectedCourse]);
+  }, [isActive, selectedCourse, curricula]);
 
   // ── Select course — notify App so Phase 2 stays in sync
   const selectCourse = (id) => {
