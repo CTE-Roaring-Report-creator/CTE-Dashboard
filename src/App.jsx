@@ -31,6 +31,9 @@ export default function App() {
   const [selectedCourse, setSelectedCourse] = useState(() => loadSettingsSync().selectedCourse || "intro-tech");
   const [mediaYear, setMediaYear]           = useState(() => loadSettingsSync().mediaYear    || "media-a");
 
+  // Lifted curricula state — Phase 1 populates this, Phase 3 reads from it
+  const [curricula, setCurricula] = useState({});
+
   // Keep app-settings in sync whenever course changes
   useEffect(() => {
     const existing = loadSettingsSync();
@@ -69,6 +72,7 @@ export default function App() {
           isActive={phase === 1}
           focusedLesson={focusedLessonRef.current}
           onLessonFocused={() => { focusedLessonRef.current = null; }}
+          onCurriculaLoaded={setCurricula}
         />
       </div>
       <div style={{ display: phase === 2 ? "block" : "none" }}>
@@ -87,6 +91,7 @@ export default function App() {
           isActive={phase === 3}
           selectedCourse={selectedCourse}
           mediaYear={mediaYear}
+          curricula={curricula}
           onCourseChange={handleCourseChange}
           onCalendarSaved={handleCalendarSaved}
           onGoToWeek={handleGoToWeek}

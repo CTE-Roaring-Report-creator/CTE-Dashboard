@@ -2228,7 +2228,7 @@ function LessonLibrarySidebar({ curriculum, calendarConfig, viewMonth, viewYear,
 
 // ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
 
-export default function Phase3({ isActive, selectedCourse: selectedCourseProp, onCourseChange, onCalendarSaved, onGoToWeek, onGoToLesson }) {
+export default function Phase3({ isActive, selectedCourse: selectedCourseProp, curricula = {}, onCourseChange, onCalendarSaved, onGoToWeek, onGoToLesson }) {
   const today = todayStr();
   const todayDate = parseDate(today);
 
@@ -2290,7 +2290,8 @@ export default function Phase3({ isActive, selectedCourse: selectedCourseProp, o
 
   useEffect(() => {
     setLoading(true);
-    const cur = loadCurriculum(selectedCourse);
+    // Curriculum comes from the curricula prop (loaded by Phase 1 from Drive)
+    const cur = curricula[selectedCourse] || null;
     const mapData = loadMapping(selectedCourse);
     const wd = loadWeeklyData(selectedCourse);
     const cc = loadCalendarConfig();
@@ -2301,13 +2302,14 @@ export default function Phase3({ isActive, selectedCourse: selectedCourseProp, o
     setCalendarConfig(cc);
     setSubDays(loadSubDays());
     setLoading(false);
-  }, [selectedCourse]);
+  }, [selectedCourse, curricula]);
 
   // ── Re-read curriculum and weeklyData whenever the user returns to Phase 3
   //    Covers: switching back from Phase 1/2, refocusing the browser tab
   useEffect(() => {
     const refresh = () => {
-      const cur = loadCurriculum(selectedCourse);
+      // Curriculum comes from prop — just refresh calendar-specific data
+      const cur = curricula[selectedCourse] || null;
       if (cur) setCurriculum(cur);
       const wd = loadWeeklyData(selectedCourse);
       setWeeklyData(wd);
@@ -2325,7 +2327,7 @@ export default function Phase3({ isActive, selectedCourse: selectedCourseProp, o
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [selectedCourse]);
+  }, [selectedCourse, curricula]);
 
   // ── Also refresh whenever Phase 3 becomes the active tab
   useEffect(() => {
@@ -2388,7 +2390,7 @@ export default function Phase3({ isActive, selectedCourse: selectedCourseProp, o
     let currentOverflow = [];
     for (const p of PATHWAYS) {
       for (const c of p.courses) {
-        const cur = loadCurriculum(c.id) || { units: [] };
+        const cur = curricula[c.id] || { units: [] };
         const { mapping: m, overflow: o } = generateMapping(cur.units || [], sd);
         saveMapping(c.id, { mapping: m, overflow: o });
         if (c.id === selectedCourse) {
@@ -2414,7 +2416,7 @@ export default function Phase3({ isActive, selectedCourse: selectedCourseProp, o
         const wd = loadWeeklyData(c.id) || {};
         const mapData = loadMapping(c.id);
         const curMapping = mapData?.mapping || {};
-        const cur = loadCurriculum(c.id) || { units: [] };
+        const cur = curricula[c.id] || { units: [] };
         const lMap = {};
         (cur.units || []).forEach(u => u.lessons.forEach(l => { lMap[l.id] = l; }));
         const entries = [];
