@@ -292,3 +292,29 @@ export async function saveSubDays(data) {
   try { await writeFile('sub-days.json', data); }
   catch (e) { console.error('[Drive] saveSubDays failed:', e); }
 }
+
+// ─── BELL RINGER PUSH ─────────────────────────────────────────────────────────
+
+export async function loadPushConfig(courseId) {
+  if (!isSignedIn()) return null;
+  try { return await readFile(`bell-push-config-${courseId}.json`); }
+  catch (_) { return null; }
+}
+
+export async function savePushConfig(courseId, config) {
+  if (!isSignedIn()) return;
+  try { await writeFile(`bell-push-config-${courseId}.json`, config); }
+  catch (e) { console.error('[Drive] savePushConfig failed:', e); }
+}
+
+export async function loadPushLog(courseId) {
+  if (!isSignedIn()) return [];
+  try { return await readFile(`bell-push-log-${courseId}.json`) || []; }
+  catch (_) { return []; }
+}
+
+export async function savePushLog(courseId, log) {
+  if (!isSignedIn()) return;
+  try { await writeFile(`bell-push-log-${courseId}.json`, log.slice(-20)); }
+  catch (e) { console.error('[Drive] savePushLog failed:', e); }
+}

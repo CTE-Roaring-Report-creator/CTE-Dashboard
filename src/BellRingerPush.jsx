@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { ChevronDown, ChevronUp, Check, AlertTriangle, Send, Settings, X, ExternalLink, FolderOpen } from "lucide-react";
+import { loadPushConfig, savePushConfig, loadPushLog, savePushLog } from './driveStorage';
 
 // ─── THEME (mirrors Phase 2) ──────────────────────────────────────────────────
 
@@ -27,34 +28,6 @@ const DAY_NAMES   = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const DAY_SHORT   = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 const MONTH_NAMES = ["January","February","March","April","May","June",
                      "July","August","September","October","November","December"];
-
-// ─── STORAGE ─────────────────────────────────────────────────────────────────
-
-function loadPushConfig(courseId) {
-  try {
-    const v = localStorage.getItem(`bell-push-config:${courseId}`);
-    return v ? JSON.parse(v) : null;
-  } catch (_) { return null; }
-}
-
-function savePushConfig(courseId, config) {
-  try {
-    localStorage.setItem(`bell-push-config:${courseId}`, JSON.stringify(config));
-  } catch (_) {}
-}
-
-function loadPushLog(courseId) {
-  try {
-    const v = localStorage.getItem(`bell-push-log:${courseId}`);
-    return v ? JSON.parse(v) : [];
-  } catch (_) { return []; }
-}
-
-function savePushLog(courseId, log) {
-  try {
-    localStorage.setItem(`bell-push-log:${courseId}`, JSON.stringify(log.slice(-20)));
-  } catch (_) {}
-}
 
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 
@@ -307,11 +280,18 @@ export default function BellRingerPush({
   const [pushedFormUrl, setPushedFormUrl] = useState(null);
 
   useEffect(() => {
-    setConfig(loadPushConfig(courseId));
-    setPushLog(loadPushLog(courseId));
-    setPushStatus(null);
-    setPushMessage("");
-    setPushedFormUrl(null);
+    async function load() {
+      const [cfg, log] = await Promise.all([
+        loadPushConfig(courseId),
+        loadPushLog(courseId),
+      ]);
+      setConfig(cfg);
+      setPushLog(log || []);
+      setPushStatus(null);
+      setPushMessage("");
+      setPushedFormUrl(null);
+    }
+    load();
   }, [courseId]);
 
   // ── Build this week's bell ringer data ──────────────────────────────────────
