@@ -1,9 +1,6 @@
 import { useState, useEffect, useCallback, useRef, Component } from "react";
 import { ChevronDown, ChevronRight, Plus, Trash2, GripVertical, Search, X, ExternalLink, BookOpen, RotateCcw, Edit3, AlertTriangle, Clock, Layers, Copy, Download, Settings, Check, FileText } from "lucide-react";
 import {
-  initGoogleAuth,
-  signIn,
-  signOut,
   isSignedIn,
   loadCurriculum,
   saveCurriculum,
@@ -1341,7 +1338,7 @@ class ErrorBoundary extends Component {
   }
 }
 
-function AppInner({ focusedLesson, onLessonFocused, isActive, onCurriculaLoaded, onDriveReady }) {
+function AppInner({ focusedLesson, onLessonFocused, isActive, onCurriculaLoaded, driveReady }) {
 
   useEffect(() => {
     document.body.style.margin = "0";
@@ -1385,9 +1382,8 @@ function AppInner({ focusedLesson, onLessonFocused, isActive, onCurriculaLoaded,
   const saveTimer = useRef(null);
   const focusedLessonRowRef = useRef(null);
   const importRef = useRef(null);
-  const [driveReady, setDriveReady] = useState(false);
-  const [signingIn, setSigningIn] = useState(false);
-  
+  const [saveStatus, setSaveStatus] = useState('idle');
+  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   // When navigated here from Phase 3, switch course and scroll to the lesson
   useEffect(() => {
     if (!focusedLesson) return;
@@ -1418,19 +1414,12 @@ function AppInner({ focusedLesson, onLessonFocused, isActive, onCurriculaLoaded,
   const pathwayColor = courseObj?.color || pathway?.color || "#1a56c4";
   const course = getCourse(selectedCourse);
 
-  // Load all curricula on mount
-useEffect(() => {
-  async function init() {
-    try {
-      await initGoogleAuth();
-    } catch(e) {
-      console.error('[CTE] initGoogleAuth failed:', e);
-    } finally {
-      setLoading(false);
-    }
-  }
-  init();
-}, []);
+  // Load curricula once Drive auth is ready (driveReady comes from App)
+  useEffect(() => {
+    if (!driveReady) return;
+    setLoading(true);
+    loadAllCurricula().finally(() => setLoading(false));
+  }, [driveReady]);
 
 async function loadAllCurricula() {
   const settings = await loadSettings();
@@ -1579,33 +1568,6 @@ async function handleSaveStandards(list) {
     saveCurriculum(selectedCourse, seed);
     setShowResetConfirm(false);
   }
-if (!driveReady && !loading) {
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center',
-                  justifyContent: 'center', height: '100vh', background: '#0f1117', gap: 20 }}>
-      <div style={{ fontSize: 28, fontWeight: 700, color: '#f0ede8' }}>CTE Curriculum Dashboard</div>
-      <div style={{ fontSize: 15, color: '#9ca3b8' }}>Sign in with Google to load your curriculum</div>
-      <button
-        onClick={async () => {
-          setSigningIn(true);
-          const ok = await signIn();
-          if (ok) {
-            setDriveReady(true);
-            if (onDriveReady) onDriveReady();
-            setLoading(true);
-            await loadAllCurricula();
-            setLoading(false);
-          }
-          setSigningIn(false);
-        }}
-        style={{ padding: '12px 28px', borderRadius: 10, background: '#1a56c4',
-                 color: '#fff', border: 'none', fontSize: 16, fontWeight: 600, cursor: 'pointer' }}
-      >
-        {signingIn ? 'Signing in...' : 'Sign in with Google'}
-      </button>
-    </div>
-  );
-}
 
   if (loading) {
     return (
@@ -1881,10 +1843,10 @@ if (!driveReady && !loading) {
   );
 }
 
-export default function App({ focusedLesson, onLessonFocused, isActive, onCurriculaLoaded, onDriveReady }) {
+export default function App({ focusedLesson, onLessonFocused, isActive, onCurriculaLoaded, driveReady }) {
   return (
     <ErrorBoundary>
-      <AppInner focusedLesson={focusedLesson} onLessonFocused={onLessonFocused} isActive={isActive} onCurriculaLoaded={onCurriculaLoaded} onDriveReady={onDriveReady} />
+      <AppInner focusedLesson={focusedLesson} onLessonFocused={onLessonFocused} isActive={isActive} onCurriculaLoaded={onCurriculaLoaded} driveReady={driveReady} />
     </ErrorBoundary>
   );
 }

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import Phase1 from "./CTECurriculumDashboard";
 import Phase2 from "./Phase2";
 import Phase3 from "./Phase3.jsx";
+import { initGoogleAuth, signIn } from './driveStorage';
 
 const PHASES = [
   { id: 1, label: "📚 Master Builder",   sub: "Phase 1" },
@@ -27,18 +28,26 @@ export default function App() {
   const [phase, setPhase] = useState(3);
   const focusedWeekRef = useRef(null);
 
+  // Auth state — managed here so all phases benefit
+  const [driveReady, setDriveReady] = useState(false);
+  const [signingIn, setSigningIn] = useState(false);
+  const [authInit, setAuthInit] = useState(false); // true once initGoogleAuth completes
+
   // Lifted course state — shared between Phase 2 and Phase 3
   const [selectedCourse, setSelectedCourse] = useState(() => loadSettingsSync().selectedCourse || "intro-tech");
   const [mediaYear, setMediaYear]           = useState(() => loadSettingsSync().mediaYear    || "media-a");
 
   // Lifted curricula state — Phase 1 populates this, Phase 2 and 3 read from it
   const [curricula, setCurricula] = useState({});
-  const [driveReady, setDriveReady] = useState(false);
+
+  // Initialize Google Auth on mount
+  useEffect(() => {
+    initGoogleAuth().then(() => setAuthInit(true));
+  }, []);
 
   // Called by Phase 2 when bell ringers are edited — saves back to Drive
   const handleCurriculaChange = useCallback(async (newCurricula) => {
     setCurricula(newCurricula);
-    // Save each changed course back to Drive
     const { saveCurriculum } = await import('./driveStorage');
     for (const [courseId, data] of Object.entries(newCurricula)) {
       await saveCurriculum(courseId, data);
@@ -74,6 +83,31 @@ export default function App() {
     setPhase(1);
   };
 
+  // ── Sign-in gate — shown over everything until auth is complete
+  if (!driveReady) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center',
+                    justifyContent: 'center', height: '100vh', background: '#0f1117', gap: 20 }}>
+        <div style={{ fontSize: 28, fontWeight: 700, color: '#f0ede8' }}>CTE Curriculum Dashboard</div>
+        <div style={{ fontSize: 15, color: '#9ca3b8' }}>Sign in with Google to load your curriculum</div>
+        <button
+          disabled={!authInit || signingIn}
+          onClick={async () => {
+            setSigningIn(true);
+            const ok = await signIn();
+            if (ok) setDriveReady(true);
+            setSigningIn(false);
+          }}
+          style={{ padding: '12px 28px', borderRadius: 10, background: authInit ? '#1a56c4' : '#2a3050',
+                   color: '#fff', border: 'none', fontSize: 16, fontWeight: 600,
+                   cursor: authInit ? 'pointer' : 'not-allowed', opacity: authInit ? 1 : 0.6 }}
+        >
+          {signingIn ? 'Signing in...' : !authInit ? 'Loading...' : 'Sign in with Google'}
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div style={{ fontFamily: "system-ui, sans-serif", background: "#0f1117", minHeight: "100vh" }}>
 
@@ -84,7 +118,7 @@ export default function App() {
           focusedLesson={focusedLessonRef.current}
           onLessonFocused={() => { focusedLessonRef.current = null; }}
           onCurriculaLoaded={setCurricula}
-          onDriveReady={() => setDriveReady(true)}
+          driveReady={driveReady}
         />
       </div>
       <div style={{ display: phase === 2 ? "block" : "none" }}>
