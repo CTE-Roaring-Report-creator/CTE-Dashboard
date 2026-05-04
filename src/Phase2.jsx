@@ -1031,7 +1031,7 @@ function WeeklyBellRingers({ weekDates, mapping, lessonMap, niSet, pathwayColor 
 
 // ─── MAIN PHASE 2 COMPONENT ──────────────────────────────────────────────────
 
-export default function Phase2({ isActive, calendarVersion, selectedCourse: selectedCourseProp, onCourseChange, focusedWeek, onWeekFocused, curricula: curriculaProp = {}, onCurriculaChange }) {
+export default function Phase2({ isActive, calendarVersion, selectedCourse: selectedCourseProp, onCourseChange, focusedWeek, onWeekFocused, curricula: curriculaProp = {}, onCurriculaChange, driveReady }) {
   const [selectedCourse, setSelectedCourse] = useState(selectedCourseProp || "intro-tech");
   const [curricula, setCurricula] = useState(curriculaProp);
   const [weeklyDataMap, setWeeklyDataMap] = useState({});
@@ -1844,6 +1844,7 @@ export default function Phase2({ isActive, calendarVersion, selectedCourse: sele
                 calendarConfig={calendarConfig}
                 pathwayColor={pathwayColor}
                 mondayStr={currentMonday}
+                driveReady={driveReady}
               />
             </>
           )}

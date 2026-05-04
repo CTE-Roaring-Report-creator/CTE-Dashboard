@@ -24,7 +24,7 @@ function saveSettingsSync(s) {
 }
 
 export default function App() {
-  const [phase, setPhase] = useState(1);
+  const [phase, setPhase] = useState(3);
   const focusedWeekRef = useRef(null);
 
   // Lifted course state — shared between Phase 2 and Phase 3
@@ -33,6 +33,7 @@ export default function App() {
 
   // Lifted curricula state — Phase 1 populates this, Phase 2 and 3 read from it
   const [curricula, setCurricula] = useState({});
+  const [driveReady, setDriveReady] = useState(false);
 
   // Called by Phase 2 when bell ringers are edited — saves back to Drive
   const handleCurriculaChange = useCallback(async (newCurricula) => {
@@ -83,6 +84,7 @@ export default function App() {
           focusedLesson={focusedLessonRef.current}
           onLessonFocused={() => { focusedLessonRef.current = null; }}
           onCurriculaLoaded={setCurricula}
+          onDriveReady={() => setDriveReady(true)}
         />
       </div>
       <div style={{ display: phase === 2 ? "block" : "none" }}>
@@ -92,6 +94,7 @@ export default function App() {
           selectedCourse={selectedCourse}
           mediaYear={mediaYear}
           curricula={curricula}
+          driveReady={driveReady}
           onCurriculaChange={handleCurriculaChange}
           onCourseChange={handleCourseChange}
           focusedWeek={focusedWeekRef.current}

@@ -1341,7 +1341,7 @@ class ErrorBoundary extends Component {
   }
 }
 
-function AppInner({ focusedLesson, onLessonFocused, isActive, onCurriculaLoaded }) {
+function AppInner({ focusedLesson, onLessonFocused, isActive, onCurriculaLoaded, onDriveReady }) {
 
   useEffect(() => {
     document.body.style.margin = "0";
@@ -1387,8 +1387,6 @@ function AppInner({ focusedLesson, onLessonFocused, isActive, onCurriculaLoaded 
   const importRef = useRef(null);
   const [driveReady, setDriveReady] = useState(false);
   const [signingIn, setSigningIn] = useState(false);
-  const [saveStatus, setSaveStatus] = useState('idle'); // idle | saving | saved | error
-  const [showOptionsMenu, setShowOptionsMenu] = useState(false);
   
   // When navigated here from Phase 3, switch course and scroll to the lesson
   useEffect(() => {
@@ -1593,6 +1591,7 @@ if (!driveReady && !loading) {
           const ok = await signIn();
           if (ok) {
             setDriveReady(true);
+            if (onDriveReady) onDriveReady();
             setLoading(true);
             await loadAllCurricula();
             setLoading(false);
@@ -1707,8 +1706,13 @@ if (!driveReady && !loading) {
             ))}
           </div>
           <div style={{ width: 1, height: 36, background: "#2a3050", flexShrink: 0 }} />
-          <div style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center" }}>
-
+          <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+            <button onClick={() => setShowSearch(s => !s)} style={{ ...btnStyle, padding: "7px 14px", fontSize: 13, background: showSearch ? pathwayColor + "18" : undefined, color: showSearch ? pathwayColor : undefined, borderColor: showSearch ? pathwayColor : undefined }}>
+              <Search size={13} /> Search
+            </button>
+            <button onClick={() => setShowStandardsMgr(true)} style={{ ...btnStyle, padding: "7px 14px", fontSize: 13 }}>
+              <Settings size={13} /> Standards
+            </button>
             {/* Hidden file input for import */}
             <input
               ref={importRef}
@@ -1720,7 +1724,7 @@ if (!driveReady && !loading) {
                 if (!file) return;
                 try {
                   const text = await file.text();
-                  const raw = JSON.parse(text);
+                  const data = JSON.parse(text);
                   const baseName = file.name.replace(/\.json$/, '');
                   const courseId = baseName.replace(/^curriculum-/, '').replace(/-curriculum$/, '');
                   const allIds = PATHWAYS.flatMap(p => p.courses.map(c => c.id));
@@ -1728,120 +1732,38 @@ if (!driveReady && !loading) {
                     alert(`Could not match "${file.name}" to a known course.\n\nExpected filename like: intro-tech-curriculum.json`);
                     return;
                   }
-                  const importedUnits = (Array.isArray(raw) ? raw : raw.units || []).map(u => ({
-                    ...u,
-                    id: u.id || `unit-${Math.random().toString(36).slice(2,9)}`,
-                    lessons: (u.lessons || []).map(l => ({
-                      ...l,
-                      id: l.id || `lesson-${Math.random().toString(36).slice(2,9)}`,
-                    }))
-                  }));
-                  const data = { units: importedUnits };
                   await saveCurriculum(courseId, data);
                   setCurricula(c => ({ ...c, [courseId]: data }));
-                  setShowOptionsMenu(false);
-                  alert(`✓ Imported ${courseId} successfully! ${importedUnits.length} units loaded.`);
+                  alert(`✓ Imported ${courseId} successfully!`);
                 } catch(err) {
                   alert('Import failed — make sure this is a valid curriculum JSON file.');
                 }
                 e.target.value = '';
               }}
             />
-            {/* Search button */}
-            <button onClick={() => setShowSearch(s => !s)} style={{ ...btnStyle, padding: "7px 14px", fontSize: 13, background: showSearch ? pathwayColor + "18" : undefined, color: showSearch ? pathwayColor : undefined, borderColor: showSearch ? pathwayColor : undefined }}>
-              <Search size={13} /> Search
+            {/* Import button */}
+            <button onClick={() => importRef.current?.click()} style={{ ...btnStyle, padding: "7px 14px", fontSize: 13 }}>
+              <Download size={13} /> Import
             </button>
-            {/* Options menu */}
+            {/* Export dropdown */}
             <div style={{ position: "relative" }}>
-              <button
-                onClick={() => setShowOptionsMenu(o => !o)}
-                onBlur={e => { if (!e.currentTarget.parentElement.contains(e.relatedTarget)) setShowOptionsMenu(false); }}
-                style={{ ...btnStyle, padding: "7px 14px", fontSize: 13, background: showOptionsMenu ? pathwayColor + "18" : undefined, color: showOptionsMenu ? pathwayColor : undefined, borderColor: showOptionsMenu ? pathwayColor : undefined }}
-              >
-                <Settings size={13} /> Options
+              <button onClick={() => setShowExportMenu(e => !e)} onBlur={e => { if (!e.currentTarget.parentElement.contains(e.relatedTarget)) setShowExportMenu(false); }} style={{ ...btnStyle, padding: "7px 14px", fontSize: 13, background: showExportMenu ? pathwayColor + "18" : undefined, color: showExportMenu ? pathwayColor : undefined, borderColor: showExportMenu ? pathwayColor : undefined }}>
+                <FileText size={13} /> Export
               </button>
-              {showOptionsMenu && (
-                <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", background: "#1e2436", border: "1.5px solid #2a3050", borderRadius: 10, boxShadow: "0 8px 32px rgba(0,0,0,0.6)", zIndex: 200, minWidth: 220, overflow: "hidden" }}>
-                  {/* Save */}
-                  <button
-                    onClick={async () => {
-                      setShowOptionsMenu(false);
-                      setSaveStatus('saving');
-                      const doSave = async () => {
-                        await saveCurriculum(selectedCourse, { units });
-                        await saveSettings({ selectedCourse, mediaYear });
-                      };
-                      try {
-                        if (!isSignedIn()) {
-                          const ok = await signIn();
-                          if (!ok) { setSaveStatus('error'); setTimeout(() => setSaveStatus('idle'), 3000); return; }
-                        }
-                        await doSave();
-                        setSaveStatus('saved');
-                        setTimeout(() => setSaveStatus('idle'), 2500);
-                      } catch(e) {
-                        try {
-                          const ok = await signIn();
-                          if (ok) { await doSave(); setSaveStatus('saved'); setTimeout(() => setSaveStatus('idle'), 2500); }
-                          else { setSaveStatus('error'); setTimeout(() => setSaveStatus('idle'), 3000); }
-                        } catch(_) { setSaveStatus('error'); setTimeout(() => setSaveStatus('idle'), 3000); }
-                      }
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.background="#252b40"} onMouseLeave={e => e.currentTarget.style.background="none"}
-                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: saveStatus === 'saved' ? '#4ade80' : saveStatus === 'error' ? '#f87171' : "#f0ede8", borderBottom: "1px solid #2a3050", textAlign: "left" }}
-                  >
-                    <Check size={14} color={saveStatus === 'saved' ? '#4ade80' : saveStatus === 'error' ? '#f87171' : '#1a56c4'} />
-                    {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? 'Saved!' : saveStatus === 'error' ? 'Save Failed' : 'Save to Drive'}
-                  </button>
-                  {/* Manage Standards */}
-                  <button
-                    onClick={() => { setShowStandardsMgr(true); setShowOptionsMenu(false); }}
-                    onMouseEnter={e => e.currentTarget.style.background="#252b40"} onMouseLeave={e => e.currentTarget.style.background="none"}
-                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#f0ede8", borderBottom: "1px solid #2a3050", textAlign: "left" }}
-                  >
-                    <Settings size={14} color="#7c3aed" /> Manage Standards
-                  </button>
-                  {/* Import */}
-                  <button
-                    onClick={() => importRef.current?.click()}
-                    onMouseEnter={e => e.currentTarget.style.background="#252b40"} onMouseLeave={e => e.currentTarget.style.background="none"}
-                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#f0ede8", borderBottom: "1px solid #2a3050", textAlign: "left" }}
-                  >
-                    <Download size={14} color="#0891b2" /> Import JSON
-                  </button>
-                  {/* Export JSON */}
-                  <button
-                    onClick={() => { exportCurriculumJSON(course, pathway, units); setShowOptionsMenu(false); }}
-                    onMouseEnter={e => e.currentTarget.style.background="#252b40"} onMouseLeave={e => e.currentTarget.style.background="none"}
-                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#f0ede8", borderBottom: "1px solid #2a3050", textAlign: "left" }}
-                  >
+              {showExportMenu && (
+                <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", background: "#1e2436", border: "1.5px solid #2a3050", borderRadius: 10, boxShadow: "0 8px 32px rgba(0,0,0,0.6)", zIndex: 200, minWidth: 200, overflow: "hidden" }}>
+                  <button onClick={() => { exportCurriculumJSON(course, pathway, units); setShowExportMenu(false); }} onMouseEnter={e => e.currentTarget.style.background="#252b40"} onMouseLeave={e => e.currentTarget.style.background="none"} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#f0ede8", borderBottom: "1px solid #2a3050", textAlign: "left" }}>
                     <Download size={14} color="#1a56c4" /> Export as JSON
                   </button>
-                  {/* Export Text */}
-                  <button
-                    onClick={() => { exportCurriculumText(course, pathway, units); setShowOptionsMenu(false); }}
-                    onMouseEnter={e => e.currentTarget.style.background="#252b40"} onMouseLeave={e => e.currentTarget.style.background="none"}
-                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#f0ede8", borderBottom: "1px solid #2a3050", textAlign: "left" }}
-                  >
+                  <button onClick={() => { exportCurriculumText(course, pathway, units); setShowExportMenu(false); }} onMouseEnter={e => e.currentTarget.style.background="#252b40"} onMouseLeave={e => e.currentTarget.style.background="none"} style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#f0ede8", textAlign: "left" }}>
                     <FileText size={14} color="#166534" /> Export as Text Outline
-                  </button>
-                  {/* Reset */}
-                  <button
-                    onClick={() => { setShowResetConfirm(true); setShowOptionsMenu(false); }}
-                    onMouseEnter={e => e.currentTarget.style.background="#252b40"} onMouseLeave={e => e.currentTarget.style.background="none"}
-                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "#f87171", textAlign: "left" }}
-                  >
-                    <RotateCcw size={14} color="#f87171" /> Reset to Default
                   </button>
                 </div>
               )}
             </div>
-            {/* Save status indicator */}
-            {saveStatus !== 'idle' && (
-              <span style={{ fontSize: 12, color: saveStatus === 'saved' ? '#4ade80' : saveStatus === 'error' ? '#f87171' : '#9ca3b8', fontWeight: 600 }}>
-                {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'saved' ? '✓ Saved' : '✗ Save Failed'}
-              </span>
-            )}
+            <button onClick={() => setShowResetConfirm(true)} style={{ ...btnStyle, padding: "7px 14px", fontSize: 13, color: "var(--color-text-secondary)" }}>
+              <RotateCcw size={13} /> Reset
+            </button>
           </div>
         </div>
 
@@ -1959,10 +1881,10 @@ if (!driveReady && !loading) {
   );
 }
 
-export default function App({ focusedLesson, onLessonFocused, isActive, onCurriculaLoaded }) {
+export default function App({ focusedLesson, onLessonFocused, isActive, onCurriculaLoaded, onDriveReady }) {
   return (
     <ErrorBoundary>
-      <AppInner focusedLesson={focusedLesson} onLessonFocused={onLessonFocused} isActive={isActive} onCurriculaLoaded={onCurriculaLoaded} />
+      <AppInner focusedLesson={focusedLesson} onLessonFocused={onLessonFocused} isActive={isActive} onCurriculaLoaded={onCurriculaLoaded} onDriveReady={onDriveReady} />
     </ErrorBoundary>
   );
 }

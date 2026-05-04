@@ -270,6 +270,7 @@ export default function BellRingerPush({
   calendarConfig,
   pathwayColor,
   mondayStr,
+  driveReady,
 }) {
   const [expanded,      setExpanded]      = useState(false);
   const [showConfig,    setShowConfig]    = useState(false);
@@ -279,7 +280,9 @@ export default function BellRingerPush({
   const [pushMessage,   setPushMessage]   = useState("");
   const [pushedFormUrl, setPushedFormUrl] = useState(null);
 
+  // Load from Drive — re-runs when courseId changes OR when Drive auth completes
   useEffect(() => {
+    if (!driveReady) return;
     async function load() {
       const [cfg, log] = await Promise.all([
         loadPushConfig(courseId),
@@ -292,7 +295,7 @@ export default function BellRingerPush({
       setPushedFormUrl(null);
     }
     load();
-  }, [courseId]);
+  }, [courseId, driveReady]);
 
   // ── Build this week's bell ringer data ──────────────────────────────────────
   const weekData = weekDates.map((d, i) => {
