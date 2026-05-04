@@ -2172,6 +2172,7 @@ export default function Phase3({ isActive, selectedCourse: selectedCourseProp, c
   const [viewMonth, setViewMonth] = useState(todayDate.getMonth());
   const [dragSource, setDragSource] = useState(null);
   const [dragOverflow, setDragOverflow] = useState(null);
+  const [overflowExpanded, setOverflowExpanded] = useState(true);
   const [showSetup, setShowSetup] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
   const [librarySemFilter, setLibrarySemFilter] = useState("auto"); // "auto" | "all" | "Fall" | "Spring"
@@ -2223,6 +2224,7 @@ export default function Phase3({ isActive, selectedCourse: selectedCourseProp, c
       const wd = await loadWeeklyData(selectedCourse);
       const cc = await loadCalendarConfig();
       setCurriculum(cur);
+      // Only set mapping if one exists — never auto-generate
       setMapping(mapData ? mapData.mapping : null);
       setOverflow(mapData ? (mapData.overflow || []) : []);
       setWeeklyData(wd);
@@ -2231,14 +2233,19 @@ export default function Phase3({ isActive, selectedCourse: selectedCourseProp, c
       setLoading(false);
     }
     load();
-  }, [selectedCourse, curricula]);
+  }, [selectedCourse]); // curricula intentionally excluded — curriculum updates via separate effect below
+
+  // ── Only update the curriculum object when curricula prop changes
+  // ── Never touch mapping, weeklyData, or any other state
+  useEffect(() => {
+    const cur = curricula[selectedCourse] || null;
+    if (cur) setCurriculum(cur);
+  }, [curricula, selectedCourse]);
 
   // ── Re-read curriculum and weeklyData whenever the user returns to Phase 3
   //    Covers: switching back from Phase 1/2, refocusing the browser tab
   useEffect(() => {
     const refresh = async () => {
-      const cur = curricula[selectedCourse] || null;
-      if (cur) setCurriculum(cur);
       const wd = await loadWeeklyData(selectedCourse);
       setWeeklyData(wd);
       const mapData = await loadMapping(selectedCourse);
@@ -2255,13 +2262,11 @@ export default function Phase3({ isActive, selectedCourse: selectedCourseProp, c
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", onVisibility);
     };
-  }, [selectedCourse, curricula]);
+  }, [selectedCourse]);
 
   useEffect(() => {
     if (!isActive) return;
     async function refresh() {
-      const cur = curricula[selectedCourse] || null;
-      if (cur) setCurriculum(cur);
       const wd = await loadWeeklyData(selectedCourse);
       setWeeklyData(wd);
       const mapData = await loadMapping(selectedCourse);
@@ -2272,7 +2277,7 @@ export default function Phase3({ isActive, selectedCourse: selectedCourseProp, c
       setSubDays(await loadSubDays());
     }
     refresh();
-  }, [isActive, selectedCourse, curricula]);
+  }, [isActive, selectedCourse]);
 
   // ── Select course — notify App so Phase 2 stays in sync
   const selectCourse = (id) => {
@@ -2288,10 +2293,10 @@ export default function Phase3({ isActive, selectedCourse: selectedCourseProp, c
     saveMapping(selectedCourse, { mapping: newMap, overflow: newOvfl });
   };
 
-  // ── Calendar setup save — generates fresh mappings for all courses
+  // ── Calendar setup save — generates fresh mappings ONLY on first-time setup
   const handleSaveCalendarConfig = async (config) => {
     setCalendarConfig(config);
-    saveCalendarConfig(config);
+    await saveCalendarConfig(config);
     setShowSetup(false);
 
     // Notify App so Phase 2 re-reads immediately
@@ -2302,12 +2307,14 @@ export default function Phase3({ isActive, selectedCourse: selectedCourseProp, c
     setViewYear(start.getFullYear());
     setViewMonth(start.getMonth());
 
-    // Auto-generate only if no mapping exists yet (fresh setup)
-    const existingMap = loadMapping(selectedCourse);
+    // Auto-generate ONLY if no mapping exists yet (fresh calendar setup)
+    // Awaiting properly so Drive returns actual data, not undefined
+    const existingMap = await loadMapping(selectedCourse);
     const hasMapping = existingMap?.mapping && Object.keys(existingMap.mapping).length > 0;
     if (!hasMapping) {
       await handleGenerateSchedule(config);
     }
+    // If mapping already exists, leave calendar completely untouched
   };
 
   // ── Explicit "Generate Full Schedule" — overwrites all mappings for all courses
@@ -3521,6 +3528,11 @@ export default function Phase3({ isActive, selectedCourse: selectedCourseProp, c
           <span style={{ fontSize: 11, color: D.text2 }}>
             <span style={{ color: D.text1, fontWeight: 700 }}>{lessonCount}</span> lessons mapped
           </span>
+          {overflow.length > 0 && (
+            <span style={{ fontSize: 11, color: "#f97316", cursor: "pointer" }} onClick={() => setOverflowExpanded(e => !e)}>
+              ⚠️ {overflow.length} lesson{overflow.length !== 1 ? "s" : ""} in overflow — see tray below
+            </span>
+          )}
           <span style={{ fontSize: 11, color: D.text2, marginLeft: "auto" }}>
             Click for details · Drag to move/swap · Right-click to adjust pacing
           </span>
@@ -3636,6 +3648,20 @@ export default function Phase3({ isActive, selectedCourse: selectedCourseProp, c
         </div>
       </div>{/* end calendar grid column */}
       </div>{/* end calendar grid + sidebar row */}
+
+      {/* ── Overflow tray */}
+      <OverflowTray
+        overflow={overflow}
+        lessonMap={lessonMap}
+        unitMap={unitMap}
+        expanded={overflowExpanded}
+        onToggle={() => setOverflowExpanded(e => !e)}
+        onDragStart={(ovItem) => { setDragOverflow(ovItem); setDragSource(null); setPopup(null); }}
+        onDragEnd={() => setDragOverflow(null)}
+        onAppend={handleAppendOverflow}
+        onSkip={handleSkipOverflow}
+        pathwayColor={pathwayColor}
+      />
 
       {/* ── Footer */}
       <div style={{ borderTop: `1px solid ${D.border0}`, padding: "10px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", maxWidth: 1440, margin: "0 auto", width: "100%" }}>
