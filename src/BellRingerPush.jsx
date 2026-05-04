@@ -280,7 +280,9 @@ export default function BellRingerPush({
   const [pushMessage,   setPushMessage]   = useState("");
   const [pushedFormUrl, setPushedFormUrl] = useState(null);
 
-  // Load from Drive — re-runs when courseId changes OR when Drive auth completes
+  const [loadAttempted, setLoadAttempted] = useState(false);
+
+  // Load from Drive — fires when driveReady becomes true, retries if it changes
   useEffect(() => {
     if (!driveReady) return;
     async function load() {
@@ -293,9 +295,19 @@ export default function BellRingerPush({
       setPushStatus(null);
       setPushMessage("");
       setPushedFormUrl(null);
+      setLoadAttempted(true);
     }
     load();
   }, [courseId, driveReady]);
+
+  // Also attempt load when config panel is opened if not yet loaded
+  const handleOpenConfig = () => {
+    if (driveReady && !loadAttempted) {
+      loadPushConfig(courseId).then(cfg => { if (cfg) setConfig(cfg); setLoadAttempted(true); });
+      loadPushLog(courseId).then(log => setPushLog(log || []));
+    }
+    setShowConfig(true);
+  };
 
   // ── Build this week's bell ringer data ──────────────────────────────────────
   const weekData = weekDates.map((d, i) => {
@@ -489,7 +501,7 @@ export default function BellRingerPush({
           )}
 
           <button
-            onClick={e => { e.stopPropagation(); setShowConfig(true); }}
+            onClick={e => { e.stopPropagation(); handleOpenConfig(); }}
             title="Configure Bell Work folder, template, and Classroom IDs"
             style={{ background: "none", border: "none", cursor: "pointer", color: D.text2, padding: 4, borderRadius: 5, display: "flex" }}
           >
