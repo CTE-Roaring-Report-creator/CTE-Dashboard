@@ -1606,11 +1606,7 @@ export default function Phase2({ isActive, calendarVersion, selectedCourse: sele
                     <span style={{ marginLeft: 4, fontSize: 10, opacity: 0.6 }}>
                       {mediaYear === "media-b" ? "Yr B" : "Yr A"}
                     </span>
-                    {(overflows[mediaYear] || []).length > 0 && (
-                      <span title="Lessons in overflow — manage in Monthly Calendar (Phase 3)" style={{ marginLeft: 5, fontSize: 10, fontWeight: 700, padding: "1px 5px", borderRadius: 10, background: "#f97316", color: "white" }}>
-                        {(overflows[mediaYear] || []).length}
-                      </span>
-                    )}
+
                   </button>
                 ) : (
                   p.courses.map(c => {
@@ -1625,11 +1621,7 @@ export default function Phase2({ isActive, calendarVersion, selectedCourse: sele
                       }}>
                         {c.name}
                         <span style={{ marginLeft: 4, fontSize: 10, opacity: 0.6 }}>{c.grades}</span>
-                        {(overflows[c.id] || []).length > 0 && (
-                          <span title="Lessons in overflow — manage in Monthly Calendar (Phase 3)" style={{ marginLeft: 5, fontSize: 10, fontWeight: 700, padding: "1px 5px", borderRadius: 10, background: "#f97316", color: "white" }}>
-                            {(overflows[c.id] || []).length}
-                          </span>
-                        )}
+
                       </button>
                     );
                   })

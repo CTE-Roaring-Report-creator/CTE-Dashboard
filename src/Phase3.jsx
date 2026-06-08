@@ -798,8 +798,8 @@ function DayPopup({ dateKey, dayData, weeklyDayData, subDayData, lesson, unit, p
 
 function DayCell({
   dateKey, dayData, weeklyDayData, isSubDay, lesson, unit, isToday, isThisMonth,
-  isNonInstructional, pathwayColor, dragSource, dragOverflow, onContextMenu,
-  onDragStart, onDrop, onDropOverflow, onDragEnd, onClick,
+  isNonInstructional, pathwayColor, dragSource, onContextMenu,
+  onDragStart, onDrop, onDragEnd, onClick,
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
   const status = weeklyDayData?.status || "planned";
@@ -826,37 +826,22 @@ function DayCell({
     cellBorder = typeMeta.border;
   }
 
-  // Overflow placement mode = green highlight; swap mode = pathway color highlight
+  // Drag-over highlight — pathway color for swap/move
   if (isDragOver && !isNonInstructional) {
-    if (dragOverflow) {
-      cellBorder = "#22c55e";
-      cellBg = "#0d2d1a";
-    } else {
-      cellBorder = pathwayColor;
-      cellBg = pathwayColor + "18";
-    }
-  }
-
-  // Non-instructional cells show red tint when dragging overflow over them
-  if (isDragOver && isNonInstructional && dragOverflow) {
-    cellBorder = "#f87171";
-    cellBg = "#2d0f0f";
+    cellBorder = pathwayColor;
+    cellBg = pathwayColor + "18";
   }
 
   return (
     <div
-      draggable={!isNonInstructional && !isEmpty && !dragOverflow}
+      draggable={!isNonInstructional && !isEmpty}
       data-datekey={dateKey}
       onDragStart={() => onDragStart(dateKey)}
       onDragOver={e => { e.preventDefault(); setIsDragOver(true); }}
       onDragLeave={() => setIsDragOver(false)}
       onDrop={() => {
         setIsDragOver(false);
-        if (dragOverflow) {
-          onDropOverflow(dateKey);
-        } else {
-          onDrop(dateKey);
-        }
+        onDrop(dateKey);
       }}
       onDragEnd={onDragEnd}
       onContextMenu={e => { if (!isNonInstructional) { e.preventDefault(); onContextMenu(e, dateKey); } }}
@@ -1644,6 +1629,7 @@ function DragActionModal({
   const targetIsLesson = targetMeta?.type === "lesson";
   const sameLength = targetIsLesson && draggedLesson.totalDays === targetMeta.totalDays;
   const canSwap = !isLibraryDrag && sameLength && hasTarget;
+  const diffLength = !isLibraryDrag && targetIsLesson && !sameLength && hasTarget;
 
   const formatDate = (dk) => {
     if (!dk) return "";
@@ -1721,6 +1707,20 @@ function DragActionModal({
           </div>
         </div>
 
+        {/* Different-length notice */}
+        {diffLength && (
+          <div style={{
+            margin: "10px 18px 0",
+            background: "#1a1a0d", border: "1.5px solid #4a4a10", borderRadius: 8,
+            padding: "9px 12px", display: "flex", gap: 8, alignItems: "flex-start",
+          }}>
+            <span style={{ fontSize: 14, flexShrink: 0 }}>ℹ️</span>
+            <div style={{ fontSize: 12, color: "#c4c44a", lineHeight: 1.5 }}>
+              These lessons are different lengths ({draggedLesson.totalDays}d vs {targetMeta?.totalDays}d) — Swap isn't available. Use <strong>Insert</strong> to shift or <strong>Overwrite</strong> to replace.
+            </div>
+          </div>
+        )}
+
         {/* Overflow warning */}
         {overflowWarning > 0 && (
           <div style={{
@@ -1730,7 +1730,7 @@ function DragActionModal({
           }}>
             <AlertTriangle size={14} color="#f97316" style={{ flexShrink: 0, marginTop: 1 }} />
             <div style={{ fontSize: 12, color: "#f97316", lineHeight: 1.5 }}>
-              Inserting here will push {overflowWarning} lesson{overflowWarning !== 1 ? "s" : ""} past the end of the semester into overflow.
+              Inserting here will push {overflowWarning} lesson{overflowWarning !== 1 ? "s" : ""} past the end of the semester.
             </div>
           </div>
         )}
@@ -1760,7 +1760,7 @@ function DragActionModal({
               onMouseEnter={e => { e.currentTarget.style.background = "#1a3a6b"; }}
               onMouseLeave={e => { e.currentTarget.style.background = "#0d1f3d"; }}
             >
-              ⇄ Swap Days
+              ⇄ Swap — exchange positions
             </button>
           )}
 
@@ -1771,10 +1771,10 @@ function DragActionModal({
             onMouseEnter={e => { e.currentTarget.style.background = "#1a5433"; }}
             onMouseLeave={e => { e.currentTarget.style.background = "#0d2d1a"; }}
           >
-            → {overflowWarning > 0 ? "Insert Anyway" : "Insert"} — shift everything forward
+            → Insert — shift everything forward
           </button>
 
-          {/* Overwrite — show when target is occupied OR when lesson won't fit (force-place, truncated) */}
+          {/* Overwrite — show when target is occupied */}
           {(hasTarget || overflowWarning > 0) && (
             <button
               onClick={onOverwrite}
@@ -1782,7 +1782,7 @@ function DragActionModal({
               onMouseEnter={e => { e.currentTarget.style.background = D.bg3; }}
               onMouseLeave={e => { e.currentTarget.style.background = D.bg2; }}
             >
-              ↗ Overwrite — {hasTarget ? "existing lesson left empty" : "place here, no shifting"}
+              ↗ Overwrite — {hasTarget ? "clear existing, leave empty" : "place here, no shifting"}
             </button>
           )}
 
@@ -1822,119 +1822,10 @@ function Toast({ message, onDismiss }) {
   );
 }
 
-// ─── OVERFLOW TRAY ───────────────────────────────────────────────────────────
-
-function OverflowTray({ overflow, lessonMap, unitMap, expanded, onToggle, onDragStart, onDragEnd, onSkip, onAppend, pathwayColor }) {
-  if (overflow.length === 0) return null;
-
-  return (
-    <div style={{
-      margin: "0 24px 24px", maxWidth: 1440, marginLeft: "auto", marginRight: "auto",
-      borderRadius: 10, border: "1.5px solid #6b3a1a", overflow: "hidden", background: "#1a100a",
-    }}>
-      {/* Header */}
-      <button
-        onClick={onToggle}
-        style={{
-          width: "100%", display: "flex", alignItems: "center", gap: 10,
-          padding: "12px 16px", background: "none", border: "none",
-          cursor: "pointer", fontFamily: "inherit", textAlign: "left",
-        }}
-        onMouseEnter={e => e.currentTarget.style.background = "#2d1a0d"}
-        onMouseLeave={e => e.currentTarget.style.background = "none"}
-      >
-        <AlertTriangle size={14} color="#f97316" />
-        <span style={{ fontSize: 13, fontWeight: 700, color: "#f97316", flex: 1 }}>
-          {overflow.length} lesson{overflow.length !== 1 ? "s" : ""} outside the semester
-        </span>
-        <span style={{ fontSize: 11, color: "#9a5a2a" }}>
-          {expanded ? "▲ collapse" : "▼ expand"}
-        </span>
-      </button>
-
-      {/* Cards */}
-      {expanded && (
-        <div style={{ borderTop: "1px solid #3a1a0a" }}>
-          {overflow.map((ov, i) => {
-            const lesson = lessonMap[ov.lessonId];
-            const unit = unitMap[ov.unitId];
-            const typeMeta = LESSON_TYPE_META[lesson?.type] || LESSON_TYPE_META.instruction;
-            return (
-              <div key={i} style={{
-                display: "flex", alignItems: "center", gap: 12,
-                padding: "10px 16px",
-                borderBottom: i < overflow.length - 1 ? "1px solid #2a1508" : "none",
-              }}>
-                {/* Draggable lesson card */}
-                <div
-                  draggable
-                  onDragStart={() => onDragStart(ov)}
-                  onDragEnd={onDragEnd}
-                  style={{
-                    display: "flex", alignItems: "stretch", gap: 0, flex: 1, minWidth: 0,
-                    borderRadius: 8, border: `1.5px solid ${typeMeta.border}`,
-                    background: typeMeta.bg, cursor: "grab",
-                    userSelect: "none", boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
-                  }}
-                >
-                  <div style={{ width: 4, background: typeMeta.accent, borderRadius: "6px 0 0 6px", flexShrink: 0 }} />
-                  <div style={{ padding: "8px 10px", flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: typeMeta.accent, letterSpacing: "0.05em", textTransform: "uppercase", marginBottom: 3 }}>
-                      {typeMeta.label}
-                    </div>
-                    <div style={{ fontSize: 12, fontWeight: 600, color: "#f0ede8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: 2 }}>
-                      {lesson?.title || "Unknown lesson"}
-                    </div>
-                    <div style={{ fontSize: 11, color: "#9a5a2a" }}>
-                      {unit?.title}
-                      {ov.daysNeeded > 1 && <span style={{ marginLeft: 5, color: "#6b3a1a" }}>· {ov.daysNeeded}d</span>}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                  <button
-                    onClick={() => onAppend(i)}
-                    style={{
-                      padding: "5px 12px", borderRadius: 6, fontSize: 12, fontWeight: 600,
-                      border: "1px solid #f97316", background: "#f9731618", color: "#f97316",
-                      cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.background = "#f9731630"}
-                    onMouseLeave={e => e.currentTarget.style.background = "#f9731618"}
-                    title="Append to end of semester"
-                  >
-                    + Append
-                  </button>
-                  <button
-                    onClick={() => onSkip(i)}
-                    style={{
-                      padding: "5px 12px", borderRadius: 6, fontSize: 12, fontWeight: 500,
-                      border: "1px solid #6b3a1a", background: "none", color: "#9a5a2a",
-                      cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
-                    }}
-                    onMouseEnter={e => e.currentTarget.style.background = "#3a1a0a"}
-                    onMouseLeave={e => e.currentTarget.style.background = "none"}
-                    title="Skip this lesson for the semester"
-                  >
-                    Skip
-                  </button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {expanded && (
-        <div style={{ padding: "8px 16px", borderTop: "1px solid #3a1a0a", fontSize: 11, color: "#6b3a1a" }}>
-          Drag onto any instructional day to insert before that lesson · Append adds to end of semester · Skipped lessons stay in your master curriculum
-        </div>
-      )}
-    </div>
-  );
-}
+// OverflowTray removed — lessons that don't fit in the semester are silently
+// stored in overflow state for data-integrity purposes but are no longer shown
+// in a tray. Use the Lesson Library sidebar to manually place any unscheduled
+// lessons by dragging them onto the calendar.
 
 
 // ─── LESSON LIBRARY SIDEBAR ──────────────────────────────────────────────────
@@ -2171,8 +2062,6 @@ export default function Phase3({ isActive, selectedCourse: selectedCourseProp, c
   const [viewYear, setViewYear] = useState(todayDate.getFullYear());
   const [viewMonth, setViewMonth] = useState(todayDate.getMonth());
   const [dragSource, setDragSource] = useState(null);
-  const [dragOverflow, setDragOverflow] = useState(null);
-  const [overflowExpanded, setOverflowExpanded] = useState(true);
   const [showSetup, setShowSetup] = useState(false);
   const [showLibrary, setShowLibrary] = useState(false);
   const [librarySemFilter, setLibrarySemFilter] = useState("auto"); // "auto" | "all" | "Fall" | "Spring"
@@ -2519,7 +2408,7 @@ export default function Phase3({ isActive, selectedCourse: selectedCourseProp, c
     const targetIdx = sdIdx[dateB];
     if (targetIdx === undefined) { setSwapError("Target is not a school day."); return; }
 
-    // Check room for A at the target
+    // Check room for A at the target (enough school days)
     for (let i = 0; i < totalA; i++) {
       const idx = targetIdx + i;
       if (idx >= schoolDays.length || niSet.has(schoolDays[idx]) || !isInSemester(schoolDays[idx])) {
@@ -2528,41 +2417,43 @@ export default function Phase3({ isActive, selectedCourse: selectedCourseProp, c
       }
     }
 
-    // Target is empty — check if lesson fits, place immediately or warn
+    const draggedLesson = metaA.type === "lesson" ? lessonMap[metaA.lessonId] : null;
+
+    // ── Target is empty ────────────────────────────────────────────────────────
     if (!metaB) {
-      // All target days empty?
+      // Check if all needed slots are truly empty (ignoring source lesson's own days)
       const targetDaysForA = Array.from({ length: totalA }, (_, i) => schoolDays[targetIdx + i]);
-      const allEmpty = targetDaysForA.every(d => !mapping[d] || daysA.includes(d));
-      if (allEmpty) {
-        // Count overflow if any
-        const daysAvailable = schoolDays.length - targetIdx;
-        const overflowWarning = daysAvailable < totalA ? totalA - daysAvailable : 0;
-        if (overflowWarning > 0) {
-          // Show modal for overflow warning
-          const draggedLesson = metaA.type === "lesson" ? lessonMap[metaA.lessonId] : null;
-          setDragActionModal({
-            draggedLesson: { lessonId: metaA.lessonId, unitId: metaA.unitId, totalDays: totalA, title: draggedLesson?.title || "Lesson" },
-            targetDateKey: dateB,
-            targetMeta: null,
-            targetLesson: null,
-            isLibraryDrag: false,
-            overflowWarning,
-            pendingDragSource: { dateA, dateB, metaA, daysA, totalA, targetIdx },
-          });
-          return;
-        }
-        // Fits cleanly — move immediately
+      const blockers = targetDaysForA.filter(d => mapping[d] && !daysA.includes(d));
+
+      if (blockers.length === 0) {
+        // Fits cleanly — move immediately, no modal
         _doCalendarMove(dateA, dateB, metaA, daysA, totalA, targetIdx);
         return;
       }
+
+      // Some slots occupied — show modal (Insert or Overwrite)
+      const firstBlockerMeta = mapping[blockers[0]];
+      const firstBlockerLesson = firstBlockerMeta?.type === "lesson" ? lessonMap[firstBlockerMeta.lessonId] : null;
+      const insertOverflow = _computeInsertOverflow(dateB, totalA);
+      setDragActionModal({
+        draggedLesson: { lessonId: metaA.lessonId, unitId: metaA.unitId, totalDays: totalA, title: draggedLesson?.title || "Lesson" },
+        targetDateKey: dateB,
+        targetMeta: firstBlockerMeta,
+        targetLesson: firstBlockerLesson,
+        isLibraryDrag: false,
+        overflowWarning: insertOverflow,
+        occupiedCount: blockers.length,
+        pendingDragSource: { dateA, dateB, metaA, daysA, totalA, targetIdx },
+      });
+      return;
     }
 
-    // Target is occupied — show action modal
-    const draggedLesson = metaA.type === "lesson" ? lessonMap[metaA.lessonId] : null;
+    // ── Target is occupied ────────────────────────────────────────────────────
     const targetLesson = metaB?.type === "lesson" ? lessonMap[metaB.lessonId] : null;
     const totalB = metaB?.type === "lesson" ? (metaB.totalDays || 1) : 1;
 
-    // Compute overflow if insert is chosen
+    // Same-length lesson swap — offer Swap + Insert + Overwrite
+    // Different-length — offer Insert + Overwrite (Swap not available)
     const insertOverflow = _computeInsertOverflow(dateB, totalA);
 
     setDragActionModal({
@@ -2989,99 +2880,6 @@ export default function Phase3({ isActive, selectedCourse: selectedCourseProp, c
     applyMapping(workingMapping, workingOverflow);
   };
 
-  // ── Place an overflow lesson onto a calendar day
-  //    Inserts before whatever is on that day, shifting everything forward
-  const handlePlaceOverflow = (dateKey, ovItem) => {
-    if (!mapping || !calendarConfig) return;
-
-    // Reject non-instructional days and days outside the semester
-    if (niSet.has(dateKey) || !isInSemester(dateKey)) {
-      setSwapError("Can't place here — that day is non-instructional or outside the semester.");
-      return;
-    }
-
-    const daysNeeded = ovItem.daysNeeded || 1;
-
-    // Check enough school days remain from this point
-    const sdIdx = {};
-    schoolDays.forEach((d, i) => { sdIdx[d] = i; });
-    const startIdx = sdIdx[dateKey];
-    if (startIdx === undefined) {
-      setSwapError("Can't place here — day is not a school day.");
-      return;
-    }
-    const daysAvailable = schoolDays.length - startIdx;
-    if (daysAvailable < daysNeeded) {
-      setSwapError(`Not enough days left — need ${daysNeeded}, only ${daysAvailable} remain.`);
-      return;
-    }
-
-    // Shift everything from dateKey forward by daysNeeded
-    const { mapping: shifted, overflow: newOvfl } = shiftFrom(mapping, overflow, dateKey, daysNeeded, schoolDays);
-
-    // Place the lesson
-    for (let i = 0; i < daysNeeded; i++) {
-      const idx = startIdx + i;
-      if (idx < schoolDays.length) {
-        shifted[schoolDays[idx]] = {
-          type: "lesson",
-          lessonId: ovItem.lessonId,
-          unitId: ovItem.unitId,
-          dayIndex: i + 1,
-          totalDays: daysNeeded,
-        };
-      }
-    }
-
-    // Remove from overflow
-    const finalOverflow = newOvfl.filter(o => o.lessonId !== ovItem.lessonId);
-    applyMapping(shifted, finalOverflow);
-  };
-
-  // ── Append overflow lesson to end of semester
-  const handleAppendOverflow = (ovIndex) => {
-    if (!mapping || !calendarConfig) return;
-    const ov = overflow[ovIndex];
-    if (!ov) return;
-    const daysNeeded = ov.daysNeeded || 1;
-    // Find the last mapped school day
-    const mappedDays = Object.keys(mapping)
-      .filter(d => mapping[d]?.type === "lesson" || mapping[d]?.type === "block")
-      .sort();
-    const lastMapped = mappedDays[mappedDays.length - 1];
-    const sdIdx = {};
-    schoolDays.forEach((d, i) => { sdIdx[d] = i; });
-    const startIdx = lastMapped ? (sdIdx[lastMapped] ?? -1) + 1 : 0;
-    const daysAvailable = schoolDays.length - startIdx;
-    if (daysAvailable < daysNeeded) {
-      setSwapError(`Not enough days left — need ${daysNeeded}, only ${daysAvailable} remain.`);
-      return;
-    }
-    const newMap = { ...mapping };
-    for (let i = 0; i < daysNeeded; i++) {
-      const idx = startIdx + i;
-      if (idx < schoolDays.length) {
-        newMap[schoolDays[idx]] = {
-          type: "lesson",
-          lessonId: ov.lessonId,
-          unitId: ov.unitId,
-          dayIndex: i + 1,
-          totalDays: daysNeeded,
-        };
-      }
-    }
-    const newOverflow = overflow.filter((_, i) => i !== ovIndex);
-    applyMapping(newMap, newOverflow);
-  };
-
-  // ── Skip overflow lesson for this semester (stays in master curriculum)
-  const handleSkipOverflow = (ovIndex) => {
-    const ov = overflow[ovIndex];
-    if (!ov) return;
-    const lesson = lessonMap[ov.lessonId];
-    if (!window.confirm(`Skip "${lesson?.title || "this lesson"}" for the rest of this semester? It stays in your master curriculum and will reappear when you regenerate.`)) return;
-    applyMapping(mapping, overflow.filter((_, i) => i !== ovIndex));
-  };
 
   // ── Sub day handling — global across all courses for a given date
   const handleMarkSubDay = (dateKey, note) => {
@@ -3529,12 +3327,12 @@ export default function Phase3({ isActive, selectedCourse: selectedCourseProp, c
             <span style={{ color: D.text1, fontWeight: 700 }}>{lessonCount}</span> lessons mapped
           </span>
           {overflow.length > 0 && (
-            <span style={{ fontSize: 11, color: "#f97316", cursor: "pointer" }} onClick={() => setOverflowExpanded(e => !e)}>
-              ⚠️ {overflow.length} lesson{overflow.length !== 1 ? "s" : ""} in overflow — see tray below
+            <span style={{ fontSize: 11, color: D.text2 }}>
+              <span style={{ color: "#f59e0b", fontWeight: 700 }}>{overflow.length}</span> lesson{overflow.length !== 1 ? "s" : ""} unscheduled — use 📚 Library to place
             </span>
           )}
           <span style={{ fontSize: 11, color: D.text2, marginLeft: "auto" }}>
-            Click for details · Drag to move/swap · Right-click to adjust pacing
+            Click for details · Drag to move · Right-click for options
           </span>
         </div>
       </div>
@@ -3596,7 +3394,6 @@ export default function Phase3({ isActive, selectedCourse: selectedCourseProp, c
                     isNonInstructional={isNI}
                     pathwayColor={pathwayColor}
                     dragSource={dragSource}
-                    dragOverflow={dragOverflow}
                     onContextMenu={openContextMenuFull}
                     onDragStart={(dk) => { if (!isNI) { setPopup(null); setDragSource(dk); } }}
                     onDrop={(dk) => {
@@ -3607,8 +3404,7 @@ export default function Phase3({ isActive, selectedCourse: selectedCourseProp, c
                       }
                       setDragSource(null);
                     }}
-                    onDropOverflow={(dk) => { handlePlaceOverflow(dk, dragOverflow); setDragOverflow(null); }}
-                    onDragEnd={() => { setDragSource(null); setDragOverflow(null); }}
+                    onDragEnd={() => { setDragSource(null); }}
                     onClick={!isNI ? handleDayClick : undefined}
                   />
                 );
@@ -3648,20 +3444,6 @@ export default function Phase3({ isActive, selectedCourse: selectedCourseProp, c
         </div>
       </div>{/* end calendar grid column */}
       </div>{/* end calendar grid + sidebar row */}
-
-      {/* ── Overflow tray */}
-      <OverflowTray
-        overflow={overflow}
-        lessonMap={lessonMap}
-        unitMap={unitMap}
-        expanded={overflowExpanded}
-        onToggle={() => setOverflowExpanded(e => !e)}
-        onDragStart={(ovItem) => { setDragOverflow(ovItem); setDragSource(null); setPopup(null); }}
-        onDragEnd={() => setDragOverflow(null)}
-        onAppend={handleAppendOverflow}
-        onSkip={handleSkipOverflow}
-        pathwayColor={pathwayColor}
-      />
 
       {/* ── Footer */}
       <div style={{ borderTop: `1px solid ${D.border0}`, padding: "10px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", maxWidth: 1440, margin: "0 auto", width: "100%" }}>
