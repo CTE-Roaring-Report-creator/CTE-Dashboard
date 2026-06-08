@@ -82,21 +82,20 @@ const DEFAULT_STANDARDS = [
 ];
 
 const RESOURCE_TYPES = [
-  { id: "slide-deck", label: "Slide Deck", icon: "📊", color: "#1a56c4" },
-  { id: "handout", label: "Handout", icon: "📄", color: "#16a34a" },
-  { id: "project-brief", label: "Project Brief", icon: "📋", color: "#7c22d4" },
-  { id: "rubric", label: "Rubric", icon: "✅", color: "#ea580c" },
-  { id: "template", label: "Template", icon: "📁", color: "#0891b2" },
-  { id: "external-tool", label: "External Tool", icon: "🔗", color: "#dc2626" },
-  { id: "teacher-reference", label: "Teacher Reference", icon: "📖", color: "#854d0e" },
+  { id: "slide-deck",        label: "Slide Deck",       icon: "📊", color: "#1a56c4", defaultPost: true,  defaultCopy: false },
+  { id: "handout",           label: "Handout",          icon: "📄", color: "#16a34a", defaultPost: true,  defaultCopy: true  },
+  { id: "instructions",     label: "Instructions",     icon: "📋", color: "#7c22d4", defaultPost: true,  defaultCopy: false },
+  { id: "rubric",            label: "Rubric",           icon: "✅", color: "#ea580c", defaultPost: true,  defaultCopy: false },
+  { id: "template",          label: "Template",         icon: "📁", color: "#0891b2", defaultPost: true,  defaultCopy: true  },
+  { id: "external-tool",     label: "External Tool",    icon: "🔗", color: "#dc2626", defaultPost: true,  defaultCopy: false },
+  { id: "teacher-reference", label: "Teacher Reference",icon: "📖", color: "#854d0e", defaultPost: false, defaultCopy: false },
 ];
 
 const LESSON_TYPES = [
-  { id: "instruction",   label: "Instruction",   color: "#1a56c4", bg: "#eef3fd" },
-  { id: "classwork",     label: "Classwork",     color: "#d97706", bg: "#fefce8" },
-  { id: "group-project", label: "Group Project", color: "#16a34a", bg: "#f0fdf4" },
-  { id: "project",       label: "Project",       color: "#7c22d4", bg: "#f7f0fe" },
-  { id: "assessment",    label: "Assessment",    color: "#c2410c", bg: "#fff4eb" },
+  { id: "instruction", label: "Instruction", color: "#1a56c4", bg: "#eef3fd" },
+  { id: "classwork",   label: "Classwork",   color: "#d97706", bg: "#fefce8" },
+  { id: "project",     label: "Project",     color: "#7c22d4", bg: "#f7f0fe" },
+  { id: "assessment",  label: "Assessment",  color: "#c2410c", bg: "#fff4eb" },
 ];
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
@@ -114,9 +113,9 @@ const SEED_DATA = {
           { id: uid(), title: "Course Introduction & Expectations", type: "instruction", objective: "Recall course expectations, class procedures, and technology lab safety rules.", estimatedDays: 1, standards: ["ICT Anchor 3.0 – Career Planning","ISTE 1.1 – Empowered Learner"], links: [], notes: "" },
           { id: uid(), title: "Amazon Warehouse Virtual Tour", type: "instruction", objective: "Describe how technology is used in modern logistics and identify ICT career pathways.", estimatedDays: 2, standards: ["ICT Anchor 4.0 – Technology","ISTE 1.3 – Knowledge Constructor"], links: [], notes: "" },
           { id: uid(), title: "Syllabus & Course Overview", type: "instruction", objective: "Summarize the course pathway, grading policies, and expectations for the two-year CTE program.", estimatedDays: 1, standards: ["ICT Anchor 3.0 – Career Planning","ISTE 1.1 – Empowered Learner"], links: [], notes: "" },
-          { id: uid(), title: "Google Interland – Digital Safety", type: "group-project", objective: "Apply strategies for staying safe online by navigating interactive scenarios about phishing, oversharing, and password security.", estimatedDays: 2, standards: ["ICT Anchor 8.0 – Ethics & Legal","ISTE 1.2 – Digital Citizen"], links: [], notes: "" },
+          { id: uid(), title: "Google Interland – Digital Safety", type: "project", objective: "Apply strategies for staying safe online by navigating interactive scenarios about phishing, oversharing, and password security.", estimatedDays: 2, standards: ["ICT Anchor 8.0 – Ethics & Legal","ISTE 1.2 – Digital Citizen"], links: [], notes: "" },
           { id: uid(), title: "Fake Instagram Profile Analysis", type: "instruction", objective: "Evaluate fake social media profiles to distinguish credible from deceptive online identities.", estimatedDays: 2, standards: ["ICT Anchor 8.0 – Ethics & Legal","ISTE 1.2 – Digital Citizen"], links: [], notes: "" },
-          { id: uid(), title: "Social Sleuth Investigation", type: "group-project", objective: "Analyze digital footprints to determine what personal information is publicly accessible.", estimatedDays: 2, standards: ["ICT Anchor 8.0 – Ethics & Legal","ISTE 1.2 – Digital Citizen"], links: [], notes: "" },
+          { id: uid(), title: "Social Sleuth Investigation", type: "project", objective: "Analyze digital footprints to determine what personal information is publicly accessible.", estimatedDays: 2, standards: ["ICT Anchor 8.0 – Ethics & Legal","ISTE 1.2 – Digital Citizen"], links: [], notes: "" },
           { id: uid(), title: "Google Header Design", type: "project", objective: "Design a personalized Google Classroom header representing identity using basic graphic design principles.", estimatedDays: 1, standards: ["ICT Anchor 4.0 – Technology","ISTE 1.6 – Creative Communicator"], links: [], notes: "" },
         ]
       },
@@ -137,11 +136,11 @@ const SEED_DATA = {
         description: "Students develop proficiency in Adobe Photoshop, progressing from basic layer manipulation to advanced compositing techniques.",
         lessons: [
           { id: uid(), title: "Photoshop Introduction & Interface", type: "instruction", objective: "Identify the key tools, panels, and workspace elements of the Photoshop interface.", estimatedDays: 1, standards: ["ICT Anchor 4.0 – Technology","ISTE 1.1 – Empowered Learner"], links: [], notes: "" },
-          { id: uid(), title: "Layers Assignment", type: "group-project", objective: "Demonstrate how layers function by composing a multi-layer image with proper ordering and opacity.", estimatedDays: 3, standards: ["ICT C3.0 – Human-Technology Interfaces","ISTE 1.6 – Creative Communicator"], links: [], notes: "" },
-          { id: uid(), title: "Lasso Tool Tracing & Assignment", type: "group-project", objective: "Apply selection tools to isolate and manipulate image elements with precision.", estimatedDays: 3, standards: ["ICT C3.0 – Human-Technology Interfaces","ISTE 1.6 – Creative Communicator"], links: [], notes: "" },
+          { id: uid(), title: "Layers Assignment", type: "project", objective: "Demonstrate how layers function by composing a multi-layer image with proper ordering and opacity.", estimatedDays: 3, standards: ["ICT C3.0 – Human-Technology Interfaces","ISTE 1.6 – Creative Communicator"], links: [], notes: "" },
+          { id: uid(), title: "Lasso Tool Tracing & Assignment", type: "project", objective: "Apply selection tools to isolate and manipulate image elements with precision.", estimatedDays: 3, standards: ["ICT C3.0 – Human-Technology Interfaces","ISTE 1.6 – Creative Communicator"], links: [], notes: "" },
           { id: uid(), title: "Digital Collage", type: "project", objective: "Create a digital collage by combining multiple image sources, demonstrating layer management and composition.", estimatedDays: 2, standards: ["ICT C3.0 – Human-Technology Interfaces","ISTE 1.6 – Creative Communicator"], links: [], notes: "" },
           { id: uid(), title: "Lasso Leaves Project", type: "project", objective: "Apply lasso and selection tools to create a nature-themed composition with extracted elements.", estimatedDays: 2, standards: ["ICT C3.0 – Human-Technology Interfaces","ISTE 1.6 – Creative Communicator"], links: [], notes: "" },
-          { id: uid(), title: "Digital Filters & Effects", type: "group-project", objective: "Experiment with Photoshop filters to transform images and explain how filters modify pixel data.", estimatedDays: 2, standards: ["ICT C3.0 – Human-Technology Interfaces","ISTE 1.6 – Creative Communicator"], links: [], notes: "" },
+          { id: uid(), title: "Digital Filters & Effects", type: "project", objective: "Experiment with Photoshop filters to transform images and explain how filters modify pixel data.", estimatedDays: 2, standards: ["ICT C3.0 – Human-Technology Interfaces","ISTE 1.6 – Creative Communicator"], links: [], notes: "" },
           { id: uid(), title: "Combining Images – Meme Creation", type: "project", objective: "Combine text and images to create original memes, applying typography and composition skills.", estimatedDays: 2, standards: ["ICT C3.0 – Human-Technology Interfaces","ISTE 1.6 – Creative Communicator"], links: [], notes: "" },
           { id: uid(), title: "Digital Citizenship Meme", type: "project", objective: "Design a meme that communicates a digital citizenship concept.", estimatedDays: 2, standards: ["ICT Anchor 8.0 – Ethics & Legal","ISTE 1.2 – Digital Citizen"], links: [], notes: "" },
         ]
@@ -163,7 +162,7 @@ const SEED_DATA = {
           { id: uid(), title: "Game Design Introduction & Process", type: "instruction", objective: "Identify the stages of the game design process and understand what makes a game engaging.", estimatedDays: 2, standards: ["ICT C1.0 – Systems Development Process","ISTE 1.4 – Innovative Designer"], links: [], notes: "" },
           { id: uid(), title: "Game Design Document Creation", type: "project", objective: "Develop a comprehensive game design document outlining rules, mechanics, and player experience.", estimatedDays: 3, standards: ["ICT C2.0 – Systems & Software Requirements","ISTE 1.4 – Innovative Designer"], links: [], notes: "" },
           { id: uid(), title: "Game Prototype Development", type: "project", objective: "Build a playable prototype of the designed game and conduct initial playtesting.", estimatedDays: 5, standards: ["ICT C1.0 – Systems Development Process","ISTE 1.4 – Innovative Designer"], links: [], notes: "" },
-          { id: uid(), title: "Playtest & Revise", type: "group-project", objective: "Conduct structured playtesting sessions, collect feedback, and implement design revisions.", estimatedDays: 3, standards: ["ICT C1.0 – Systems Development Process","ICT C5.3 – Testing & Debugging","ISTE 1.4 – Innovative Designer"], links: [], notes: "" },
+          { id: uid(), title: "Playtest & Revise", type: "project", objective: "Conduct structured playtesting sessions, collect feedback, and implement design revisions.", estimatedDays: 3, standards: ["ICT C1.0 – Systems Development Process","ICT C5.3 – Testing & Debugging","ISTE 1.4 – Innovative Designer"], links: [], notes: "" },
           { id: uid(), title: "Game Showcase & Reflection", type: "assessment", objective: "Present the completed game to peers, articulate design decisions, and reflect on the design process.", estimatedDays: 2, standards: ["ICT Anchor 11.0 – Demonstration","ICT Anchor 9.0 – Leadership & Teamwork"], links: [], notes: "" },
         ]
       },
@@ -173,8 +172,8 @@ const SEED_DATA = {
         description: "Students learn foundational programming concepts through Scratch: sequences, loops, events, and basic animation.",
         lessons: [
           { id: uid(), title: "Scratch Interface & First Program", type: "instruction", objective: "Navigate the Scratch interface and create a simple program using sequences and events.", estimatedDays: 2, standards: ["ICT C5.0 – Software Development","ICT C5.1 – Logic & Data Representation","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
-          { id: uid(), title: "Loops & Repetition", type: "group-project", objective: "Implement loops in Scratch programs to create repetitive patterns and efficient code.", estimatedDays: 2, standards: ["ICT C5.1 – Logic & Data Representation","ICT C5.2 – Programming Methods","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
-          { id: uid(), title: "Events & Interactivity", type: "group-project", objective: "Use event-based programming to create interactive Scratch projects that respond to user input.", estimatedDays: 3, standards: ["ICT C5.2 – Programming Methods","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
+          { id: uid(), title: "Loops & Repetition", type: "project", objective: "Implement loops in Scratch programs to create repetitive patterns and efficient code.", estimatedDays: 2, standards: ["ICT C5.1 – Logic & Data Representation","ICT C5.2 – Programming Methods","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
+          { id: uid(), title: "Events & Interactivity", type: "project", objective: "Use event-based programming to create interactive Scratch projects that respond to user input.", estimatedDays: 3, standards: ["ICT C5.2 – Programming Methods","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
           { id: uid(), title: "Scratch Animation Project", type: "project", objective: "Create an animated story in Scratch demonstrating sequences, loops, and event handling.", estimatedDays: 5, standards: ["ICT C5.0 – Software Development","ISTE 1.6 – Creative Communicator","ISTE 1.4 – Innovative Designer"], links: [], notes: "" },
         ]
       },
@@ -184,7 +183,7 @@ const SEED_DATA = {
         description: "Students combine programming skills with narrative thinking to create animated stories in Scratch, developing both technical and creative abilities.",
         lessons: [
           { id: uid(), title: "Sprite Costumes & Animation", type: "instruction", objective: "Use sprite costumes and timing to create smooth character animations in Scratch.", estimatedDays: 2, standards: ["ICT C5.2 – Programming Methods","ISTE 1.6 – Creative Communicator"], links: [], notes: "" },
-          { id: uid(), title: "Scene Design & Backgrounds", type: "group-project", objective: "Design multi-scene Scratch projects with background transitions and environment changes.", estimatedDays: 2, standards: ["ICT C3.0 – Human-Technology Interfaces","ISTE 1.6 – Creative Communicator"], links: [], notes: "" },
+          { id: uid(), title: "Scene Design & Backgrounds", type: "project", objective: "Design multi-scene Scratch projects with background transitions and environment changes.", estimatedDays: 2, standards: ["ICT C3.0 – Human-Technology Interfaces","ISTE 1.6 – Creative Communicator"], links: [], notes: "" },
           { id: uid(), title: "Animated Story Project", type: "project", objective: "Develop a multi-scene animated story in Scratch with a clear beginning, middle, and end.", estimatedDays: 8, standards: ["ICT C5.0 – Software Development","ICT C1.0 – Systems Development Process","ISTE 1.6 – Creative Communicator"], links: [], notes: "" },
         ]
       },
@@ -194,7 +193,7 @@ const SEED_DATA = {
         description: "Students explore conditional logic and boolean expressions, applying them to create programs that make decisions and respond to conditions.",
         lessons: [
           { id: uid(), title: "If/Then & Boolean Logic", type: "instruction", objective: "Explain how conditional statements allow programs to make decisions based on conditions.", estimatedDays: 2, standards: ["ICT C5.1 – Logic & Data Representation","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
-          { id: uid(), title: "Keyboard & Mouse Conditionals", type: "group-project", objective: "Implement keyboard and mouse input handlers using conditional logic in Scratch.", estimatedDays: 3, standards: ["ICT C5.2 – Programming Methods","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
+          { id: uid(), title: "Keyboard & Mouse Conditionals", type: "project", objective: "Implement keyboard and mouse input handlers using conditional logic in Scratch.", estimatedDays: 3, standards: ["ICT C5.2 – Programming Methods","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
           { id: uid(), title: "Conditional Mini-Project", type: "project", objective: "Create an interactive Scratch project that uses conditionals to create meaningful decision points.", estimatedDays: 4, standards: ["ICT C5.0 – Software Development","ISTE 1.4 – Innovative Designer"], links: [], notes: "" },
         ]
       },
@@ -204,7 +203,7 @@ const SEED_DATA = {
         description: "Students learn variables, score tracking, and advanced game mechanics, culminating in original game designs.",
         lessons: [
           { id: uid(), title: "Variables Introduction", type: "instruction", objective: "Define variables and demonstrate how they store and change data within a program.", estimatedDays: 2, standards: ["ICT C5.1 – Logic & Data Representation","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
-          { id: uid(), title: "Score & Lives Systems", type: "group-project", objective: "Implement score and lives tracking systems using variables in a Scratch game.", estimatedDays: 3, standards: ["ICT C5.2 – Programming Methods","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
+          { id: uid(), title: "Score & Lives Systems", type: "project", objective: "Implement score and lives tracking systems using variables in a Scratch game.", estimatedDays: 3, standards: ["ICT C5.2 – Programming Methods","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
           { id: uid(), title: "Advanced Game Development", type: "project", objective: "Design and develop a complete arcade-style game in Scratch with variables, conditionals, and collision detection.", estimatedDays: 8, standards: ["ICT C5.0 – Software Development","ICT C1.0 – Systems Development Process","ISTE 1.4 – Innovative Designer"], links: [], notes: "" },
         ]
       },
@@ -230,7 +229,7 @@ const SEED_DATA = {
         lessons: [
           { id: uid(), title: "Problem Solving Review & Computational Thinking", type: "instruction", objective: "Apply decomposition, pattern recognition, abstraction, and algorithmic thinking to solve problems.", estimatedDays: 2, standards: ["ICT C5.1 – Logic & Data Representation","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
           { id: uid(), title: "HTML Introduction & Structure", type: "instruction", objective: "Explain the structure of an HTML document using tags, elements, and the DOM hierarchy.", estimatedDays: 3, standards: ["ICT C7.0 – Web & Online Projects","ICT C3.0 – Human-Technology Interfaces","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
-          { id: uid(), title: "HTML Content Elements", type: "group-project", objective: "Create web pages using headings, paragraphs, lists, links, and images.", estimatedDays: 4, standards: ["ICT C7.0 – Web & Online Projects","ISTE 1.6 – Creative Communicator"], links: [], notes: "" },
+          { id: uid(), title: "HTML Content Elements", type: "project", objective: "Create web pages using headings, paragraphs, lists, links, and images.", estimatedDays: 4, standards: ["ICT C7.0 – Web & Online Projects","ISTE 1.6 – Creative Communicator"], links: [], notes: "" },
           { id: uid(), title: "HTML Web Page Project", type: "project", objective: "Design and build a multi-page website on a topic of choice using semantic HTML.", estimatedDays: 5, standards: ["ICT C7.0 – Web & Online Projects","ICT C1.0 – Systems Development Process","ISTE 1.4 – Innovative Designer"], links: [], notes: "" },
         ]
       },
@@ -239,13 +238,13 @@ const SEED_DATA = {
         essentialQuestion: "How do coordinates, shapes, and variables create the building blocks of interactive programs?",
         description: "Students transition from HTML to interactive programming in Code.org's Game Lab, learning drawing, variables, random numbers, sprites, and text.",
         lessons: [
-          { id: uid(), title: "Plotting Shapes & Drawing in Game Lab", type: "group-project", objective: "Use coordinates and shape functions to draw geometric compositions on the Game Lab canvas.", estimatedDays: 2, standards: ["ICT C5.1 – Logic & Data Representation","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
+          { id: uid(), title: "Plotting Shapes & Drawing in Game Lab", type: "project", objective: "Use coordinates and shape functions to draw geometric compositions on the Game Lab canvas.", estimatedDays: 2, standards: ["ICT C5.1 – Logic & Data Representation","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
           { id: uid(), title: "Shapes and Parameters", type: "instruction", objective: "Explain how parameters modify function behavior and adjust shape properties through experimentation.", estimatedDays: 1, standards: ["ICT C5.1 – Logic & Data Representation","ICT C5.2 – Programming Methods","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
-          { id: uid(), title: "Variables & Random Numbers", type: "group-project", objective: "Implement variables and random number generation to create dynamic, non-repetitive program outputs.", estimatedDays: 2, standards: ["ICT C5.1 – Logic & Data Representation","ICT C5.2 – Programming Methods","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
+          { id: uid(), title: "Variables & Random Numbers", type: "project", objective: "Implement variables and random number generation to create dynamic, non-repetitive program outputs.", estimatedDays: 2, standards: ["ICT C5.1 – Logic & Data Representation","ICT C5.2 – Programming Methods","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
           { id: uid(), title: "Mini-Project: Robot Faces", type: "project", objective: "Create a program that generates unique robot face compositions using variables and randomization.", estimatedDays: 1, standards: ["ICT C5.1 – Logic & Data Representation","ISTE 1.4 – Innovative Designer"], links: [], notes: "" },
-          { id: uid(), title: "Sprites & Sprite Properties", type: "group-project", objective: "Create and manipulate sprite objects, modifying properties like position, size, rotation, and visibility.", estimatedDays: 2, standards: ["ICT C5.1 – Logic & Data Representation","ICT C5.2 – Programming Methods","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
+          { id: uid(), title: "Sprites & Sprite Properties", type: "project", objective: "Create and manipulate sprite objects, modifying properties like position, size, rotation, and visibility.", estimatedDays: 2, standards: ["ICT C5.1 – Logic & Data Representation","ICT C5.2 – Programming Methods","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
           { id: uid(), title: "Text & Mini-Project: Captioned Scenes", type: "project", objective: "Integrate text display with sprite compositions to create captioned digital scenes that tell a story.", estimatedDays: 2, standards: ["ICT C5.1 – Logic & Data Representation","ISTE 1.6 – Creative Communicator"], links: [], notes: "" },
-          { id: uid(), title: "Draw Loop & Sprite Movement", type: "group-project", objective: "Explain the draw loop concept and implement continuous sprite movement using velocity and position updates.", estimatedDays: 2, standards: ["ICT C5.1 – Logic & Data Representation","ICT C5.2 – Programming Methods","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
+          { id: uid(), title: "Draw Loop & Sprite Movement", type: "project", objective: "Explain the draw loop concept and implement continuous sprite movement using velocity and position updates.", estimatedDays: 2, standards: ["ICT C5.1 – Logic & Data Representation","ICT C5.2 – Programming Methods","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
         ]
       },
       {
@@ -254,11 +253,11 @@ const SEED_DATA = {
         description: "Students advance to conditionals, user input handling, collision detection, and complex sprite movement, building toward full interactive applications.",
         lessons: [
           { id: uid(), title: "Mini-Project: Animation", type: "project", objective: "Create a sprite-based animation using the draw loop, costume changes, and timed sequences.", estimatedDays: 1, standards: ["ICT C5.1 – Logic & Data Representation","ISTE 1.6 – Creative Communicator"], links: [], notes: "" },
-          { id: uid(), title: "Conditionals & Keyboard Input", type: "group-project", objective: "Implement conditional statements that respond to keyboard input to control sprite behavior.", estimatedDays: 2, standards: ["ICT C5.1 – Logic & Data Representation","ICT C5.2 – Programming Methods","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
+          { id: uid(), title: "Conditionals & Keyboard Input", type: "project", objective: "Implement conditional statements that respond to keyboard input to control sprite behavior.", estimatedDays: 2, standards: ["ICT C5.1 – Logic & Data Representation","ICT C5.2 – Programming Methods","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
           { id: uid(), title: "Mouse Input & Interactive Card", type: "project", objective: "Design an interactive greeting card that responds to both mouse and keyboard events using conditional logic.", estimatedDays: 3, standards: ["ICT C5.1 – Logic & Data Representation","ICT C5.2 – Programming Methods","ISTE 1.4 – Innovative Designer"], links: [], notes: "" },
-          { id: uid(), title: "Velocity & Collision Detection", type: "group-project", objective: "Implement velocity-based movement and collision detection between sprites to create realistic interactions.", estimatedDays: 2, standards: ["ICT C5.1 – Logic & Data Representation","ICT C5.2 – Programming Methods","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
+          { id: uid(), title: "Velocity & Collision Detection", type: "project", objective: "Implement velocity-based movement and collision detection between sprites to create realistic interactions.", estimatedDays: 2, standards: ["ICT C5.1 – Logic & Data Representation","ICT C5.2 – Programming Methods","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
           { id: uid(), title: "Mini-Project: Side Scroller", type: "project", objective: "Build a side-scrolling game incorporating sprite movement, collision detection, and scoring.", estimatedDays: 2, standards: ["ICT C5.1 – Logic & Data Representation","ICT C5.2 – Programming Methods","ISTE 1.4 – Innovative Designer"], links: [], notes: "" },
-          { id: uid(), title: "Complex Sprite Movement & Collisions", type: "group-project", objective: "Implement advanced movement patterns including acceleration, deceleration, and multi-object collision handling.", estimatedDays: 1, standards: ["ICT C5.1 – Logic & Data Representation","ICT C5.2 – Programming Methods","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
+          { id: uid(), title: "Complex Sprite Movement & Collisions", type: "project", objective: "Implement advanced movement patterns including acceleration, deceleration, and multi-object collision handling.", estimatedDays: 1, standards: ["ICT C5.1 – Logic & Data Representation","ICT C5.2 – Programming Methods","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
           { id: uid(), title: "Mini-Project: Flyer Game", type: "project", objective: "Design and develop a top-down flyer game integrating all Game Lab skills: sprites, conditionals, collisions, and scoring.", estimatedDays: 2, standards: ["ICT C5.1 – Logic & Data Representation","ICT C5.2 – Programming Methods","ISTE 1.4 – Innovative Designer"], links: [], notes: "" },
         ]
       },
@@ -281,12 +280,12 @@ const SEED_DATA = {
         lessons: [
           { id: uid(), title: "Semester Reflection & Representation Matters", type: "instruction", objective: "Evaluate Semester 1 growth and explain why digital representation systems matter in computing.", estimatedDays: 2, standards: ["ICT Anchor 3.0 – Career Planning","ISTE 1.1 – Empowered Learner"], links: [], notes: "" },
           { id: uid(), title: "Patterns and Representation", type: "instruction", objective: "Identify patterns in data and explain how patterns enable efficient representation of information.", estimatedDays: 1, standards: ["ICT C5.1 – Logic & Data Representation","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
-          { id: uid(), title: "ASCII and Binary Representation", type: "group-project", objective: "Convert between binary, decimal, and ASCII to demonstrate how computers encode text and numbers.", estimatedDays: 2, standards: ["ICT C5.1 – Logic & Data Representation","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
-          { id: uid(), title: "Representing Images", type: "group-project", objective: "Explain how digital images are represented using pixels and binary data, and create a pixel art composition.", estimatedDays: 1, standards: ["ICT C5.1 – Logic & Data Representation","ICT C3.0 – Human-Technology Interfaces","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
+          { id: uid(), title: "ASCII and Binary Representation", type: "project", objective: "Convert between binary, decimal, and ASCII to demonstrate how computers encode text and numbers.", estimatedDays: 2, standards: ["ICT C5.1 – Logic & Data Representation","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
+          { id: uid(), title: "Representing Images", type: "project", objective: "Explain how digital images are represented using pixels and binary data, and create a pixel art composition.", estimatedDays: 1, standards: ["ICT C5.1 – Logic & Data Representation","ICT C3.0 – Human-Technology Interfaces","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
           { id: uid(), title: "Representing Numbers & Combining Representations", type: "instruction", objective: "Analyze how different data types are combined in computing systems and explain overflow/precision limitations.", estimatedDays: 2, standards: ["ICT C5.1 – Logic & Data Representation","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
           { id: uid(), title: "Keeping Data Secret", type: "instruction", objective: "Describe basic encryption concepts and demonstrate a simple cipher to encode and decode messages.", estimatedDays: 1, standards: ["ICT Anchor 8.0 – Ethics & Legal","ISTE 1.2 – Digital Citizen"], links: [], notes: "" },
           { id: uid(), title: "Create a Representation", type: "project", objective: "Design an original representation system for a specific type of information and justify design choices.", estimatedDays: 2, standards: ["ICT C5.1 – Logic & Data Representation","ISTE 1.4 – Innovative Designer"], links: [], notes: "" },
-          { id: uid(), title: "Problem Solving with Data & Structuring Data", type: "group-project", objective: "Organize raw data into structured formats and use data to solve a defined problem.", estimatedDays: 2, standards: ["ICT C5.1 – Logic & Data Representation","ICT C8.0 – Databases","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
+          { id: uid(), title: "Problem Solving with Data & Structuring Data", type: "project", objective: "Organize raw data into structured formats and use data to solve a defined problem.", estimatedDays: 2, standards: ["ICT C5.1 – Logic & Data Representation","ICT C8.0 – Databases","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
           { id: uid(), title: "Interpreting Data", type: "assessment", objective: "Interpret data visualizations to draw evidence-based conclusions and identify potential biases.", estimatedDays: 1, standards: ["ICT Anchor 5.0 – Problem Solving","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
         ]
       },
@@ -309,15 +308,15 @@ const SEED_DATA = {
         description: "Students transition to physical computing, learning electrical fundamentals, circuit design, Ohm's Law, and Arduino programming.",
         lessons: [
           { id: uid(), title: "Introduction to Electricity & What is a Circuit?", type: "instruction", objective: "Define voltage, current, and resistance and explain how a closed circuit allows electricity to flow.", estimatedDays: 2, standards: ["ICT C9.1 – Hardware Assembly","ICT C9.3 – Input/Processing/Output","ISTE 1.3 – Knowledge Constructor"], links: [], notes: "" },
-          { id: uid(), title: "Ohm's Law & PhET Simulation", type: "group-project", objective: "Apply Ohm's Law (V=IR) to calculate voltage, current, and resistance using the PhET circuit simulator.", estimatedDays: 2, standards: ["ICT C9.1 – Hardware Assembly","ICT C9.3 – Input/Processing/Output","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
-          { id: uid(), title: "Circuit Research & Circuit Lab", type: "group-project", objective: "Research circuit types (series/parallel) and construct physical circuits to verify theoretical predictions.", estimatedDays: 4, standards: ["ICT C9.1 – Hardware Assembly","ICT C9.2 – Hardware I/O","ISTE 1.3 – Knowledge Constructor"], links: [], notes: "" },
+          { id: uid(), title: "Ohm's Law & PhET Simulation", type: "project", objective: "Apply Ohm's Law (V=IR) to calculate voltage, current, and resistance using the PhET circuit simulator.", estimatedDays: 2, standards: ["ICT C9.1 – Hardware Assembly","ICT C9.3 – Input/Processing/Output","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
+          { id: uid(), title: "Circuit Research & Circuit Lab", type: "project", objective: "Research circuit types (series/parallel) and construct physical circuits to verify theoretical predictions.", estimatedDays: 4, standards: ["ICT C9.1 – Hardware Assembly","ICT C9.2 – Hardware I/O","ISTE 1.3 – Knowledge Constructor"], links: [], notes: "" },
           { id: uid(), title: "Voltage Relationships & Ohm's Law Quiz", type: "assessment", objective: "Analyze voltage relationships in series and parallel circuits and demonstrate mastery of Ohm's Law.", estimatedDays: 2, standards: ["ICT C9.1 – Hardware Assembly","ICT C9.3 – Input/Processing/Output","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
           { id: uid(), title: "Arduino Research & LED/Breadboard Introduction", type: "instruction", objective: "Research Arduino microcontrollers, identify hardware components, and construct basic LED circuits on a breadboard.", estimatedDays: 5, standards: ["ICT C9.1 – Hardware Assembly","ICT C9.2 – Hardware I/O","ICT C9.5 – Microcontroller Programming","ISTE 1.3 – Knowledge Constructor"], links: [], notes: "" },
           { id: uid(), title: "Paper Circuit Project", type: "project", objective: "Design and build a paper circuit that demonstrates understanding of circuit fundamentals.", estimatedDays: 1, standards: ["ICT C9.1 – Hardware Assembly","ICT C9.2 – Hardware I/O","ISTE 1.4 – Innovative Designer"], links: [], notes: "" },
-          { id: uid(), title: "Intro to Arduino Programming & Blink Projects", type: "group-project", objective: "Write Arduino code to control LED blinking patterns, applying programming concepts to physical hardware.", estimatedDays: 3, standards: ["ICT C9.5 – Microcontroller Programming","ICT C5.0 – Software Development","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
-          { id: uid(), title: "Micro Servo & Big Servo", type: "group-project", objective: "Program servo motors to specific angles using Arduino, demonstrating control of mechanical output through code.", estimatedDays: 2, standards: ["ICT C9.5 – Microcontroller Programming","ICT C9.3 – Input/Processing/Output","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
+          { id: uid(), title: "Intro to Arduino Programming & Blink Projects", type: "project", objective: "Write Arduino code to control LED blinking patterns, applying programming concepts to physical hardware.", estimatedDays: 3, standards: ["ICT C9.5 – Microcontroller Programming","ICT C5.0 – Software Development","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
+          { id: uid(), title: "Micro Servo & Big Servo", type: "project", objective: "Program servo motors to specific angles using Arduino, demonstrating control of mechanical output through code.", estimatedDays: 2, standards: ["ICT C9.5 – Microcontroller Programming","ICT C9.3 – Input/Processing/Output","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
           { id: uid(), title: "Photoresistor & Arduino Quiz", type: "assessment", objective: "Implement a photoresistor sensor to create a light-reactive system and demonstrate understanding of sensor input.", estimatedDays: 2, standards: ["ICT C9.5 – Microcontroller Programming","ICT C9.3 – Input/Processing/Output","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
-          { id: uid(), title: "TinkerCAD Circuit Simulations (RGB LED, Light Show)", type: "group-project", objective: "Design and simulate advanced Arduino circuits in TinkerCAD, programming RGB LEDs and multi-component systems.", estimatedDays: 4, standards: ["ICT C9.5 – Microcontroller Programming","ICT C5.1 – Logic & Data Representation","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
+          { id: uid(), title: "TinkerCAD Circuit Simulations (RGB LED, Light Show)", type: "project", objective: "Design and simulate advanced Arduino circuits in TinkerCAD, programming RGB LEDs and multi-component systems.", estimatedDays: 4, standards: ["ICT C9.5 – Microcontroller Programming","ICT C5.1 – Logic & Data Representation","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
         ]
       },
       {
@@ -328,9 +327,9 @@ const SEED_DATA = {
           { id: uid(), title: "TinkerCAD 3D Design Introduction", type: "instruction", objective: "Navigate the TinkerCAD 3D workspace and create basic 3D models using primitive shapes and grouping.", estimatedDays: 2, standards: ["ICT C3.0 – Human-Technology Interfaces","ISTE 1.4 – Innovative Designer"], links: [], notes: "" },
           { id: uid(), title: "Pobble 3D Design Project", type: "project", objective: "Design a 3D character model applying advanced TinkerCAD techniques including alignment, holes, and custom shapes.", estimatedDays: 2, standards: ["ICT C3.0 – Human-Technology Interfaces","ISTE 1.4 – Innovative Designer"], links: [], notes: "" },
           { id: uid(), title: "Shark Tank Introduction & Planning", type: "instruction", objective: "Identify a problem worth solving and develop an initial product concept using the design thinking process.", estimatedDays: 2, standards: ["ICT C2.0 – Systems & Software Requirements","ISTE 1.4 – Innovative Designer"], links: [], notes: "" },
-          { id: uid(), title: "Target Market Research", type: "group-project", objective: "Research and define target market using demographic data and consumer analysis techniques.", estimatedDays: 2, standards: ["ICT C2.0 – Systems & Software Requirements","ISTE 1.3 – Knowledge Constructor"], links: [], notes: "" },
+          { id: uid(), title: "Target Market Research", type: "project", objective: "Research and define target market using demographic data and consumer analysis techniques.", estimatedDays: 2, standards: ["ICT C2.0 – Systems & Software Requirements","ISTE 1.3 – Knowledge Constructor"], links: [], notes: "" },
           { id: uid(), title: "Benefits, Features & Production Costs", type: "instruction", objective: "Differentiate product features from benefits and calculate production costs to determine pricing strategy.", estimatedDays: 2, standards: ["ICT Anchor 3.0 – Career Planning","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
-          { id: uid(), title: "Market Survey", type: "group-project", objective: "Design and conduct a market survey, then analyze results to validate product-market fit.", estimatedDays: 1, standards: ["ICT C2.0 – Systems & Software Requirements","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
+          { id: uid(), title: "Market Survey", type: "project", objective: "Design and conduct a market survey, then analyze results to validate product-market fit.", estimatedDays: 1, standards: ["ICT C2.0 – Systems & Software Requirements","ISTE 1.5 – Computational Thinker"], links: [], notes: "" },
           { id: uid(), title: "Presentation Slides & Website Creation", type: "project", objective: "Create a professional pitch deck and product website that communicate value proposition to potential investors.", estimatedDays: 2, standards: ["ICT C7.0 – Web & Online Projects","ICT Anchor 2.0 – Communication","ISTE 1.6 – Creative Communicator"], links: [], notes: "" },
           { id: uid(), title: "3D Product Prototype Design", type: "project", objective: "Design a 3D-printable product prototype in TinkerCAD that demonstrates the product concept.", estimatedDays: 1, standards: ["ICT C3.0 – Human-Technology Interfaces","ISTE 1.4 – Innovative Designer"], links: [], notes: "" },
           { id: uid(), title: "Shark Tank Prototypes & Refinement", type: "project", objective: "Develop, test, and refine physical and digital prototypes through iterative design cycles.", estimatedDays: 4, standards: ["ICT C1.0 – Systems Development Process","ICT C5.3 – Testing & Debugging","ISTE 1.4 – Innovative Designer"], links: [], notes: "" },
@@ -595,7 +594,16 @@ function LessonEditor({ lesson, onSave, onClose, standards }) {
 
   const addLink = () => {
     if (!newLink.label || !newLink.url) return;
-    update("links", [...(form.links || []), { ...newLink, id: uid() }]);
+    const typeMeta = RESOURCE_TYPES.find(t => t.id === newLink.type);
+    const isInstruction = form.type === "instruction";
+    const isExternalUrl = !newLink.url.includes("drive.google.com") && !newLink.url.includes("docs.google.com");
+    const newEntry = {
+      ...newLink,
+      id: uid(),
+      postToClassroom: typeMeta?.defaultPost ?? true,
+      makeACopy: (!isInstruction && !isExternalUrl) ? (typeMeta?.defaultCopy ?? false) : false,
+    };
+    update("links", [...(form.links || []), newEntry]);
     setNewLink({ label: "", url: "", type: "slide-deck" });
   };
 
@@ -719,14 +727,44 @@ function LessonEditor({ lesson, onSave, onClose, standards }) {
         <div>
           <label style={modalLabelStyle}>Resource Links</label>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {(form.links || []).map(link => (
-              <div key={link.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 12px", background: "#252b40", borderRadius: 8, border: "1px solid #2a3050" }}>
-                <ResourceBadge type={link.type} />
-                <span style={{ flex: 1, fontSize: 13, color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{link.label}</span>
-                <a href={link.url} target="_blank" rel="noopener noreferrer" style={{ color: "#1a56c4", display: "flex" }}><ExternalLink size={14} /></a>
-                <button onClick={() => removeLink(link.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", display: "flex", padding: 0 }}><X size={14} /></button>
-              </div>
-            ))}
+            {(form.links || []).map(link => {
+              const isInstruction = form.type === "instruction";
+              const isExternalUrl = !link.url?.includes("drive.google.com") && !link.url?.includes("docs.google.com");
+              const canMakeCopy = !isInstruction && !isExternalUrl;
+              return (
+                <div key={link.id} style={{ padding: "10px 12px", background: "#252b40", borderRadius: 8, border: "1px solid #2a3050" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <ResourceBadge type={link.type} />
+                    <span style={{ flex: 1, fontSize: 13, color: "#f0ede8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{link.label}</span>
+                    <a href={link.url} target="_blank" rel="noopener noreferrer" style={{ color: "#1a56c4", display: "flex" }}><ExternalLink size={14} /></a>
+                    <button onClick={() => removeLink(link.id)} style={{ background: "none", border: "none", cursor: "pointer", color: "#9ca3af", display: "flex", padding: 0 }}><X size={14} /></button>
+                  </div>
+                  {/* Classroom flags */}
+                  <div style={{ display: "flex", gap: 16, marginTop: 8, paddingTop: 8, borderTop: "1px solid #1e2436" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none" }}>
+                      <input
+                        type="checkbox"
+                        checked={link.postToClassroom !== false}
+                        onChange={e => update("links", form.links.map(l => l.id === link.id ? { ...l, postToClassroom: e.target.checked } : l))}
+                        style={{ accentColor: "#1a56c4", width: 14, height: 14 }}
+                      />
+                      <span style={{ fontSize: 11, color: "#9ca3b8" }}>Post to Classroom</span>
+                    </label>
+                    {canMakeCopy && (
+                      <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", userSelect: "none" }}>
+                        <input
+                          type="checkbox"
+                          checked={!!link.makeACopy}
+                          onChange={e => update("links", form.links.map(l => l.id === link.id ? { ...l, makeACopy: e.target.checked } : l))}
+                          style={{ accentColor: "#7c22d4", width: 14, height: 14 }}
+                        />
+                        <span style={{ fontSize: 11, color: "#9ca3b8" }}>Make a copy for each student</span>
+                      </label>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
             <div style={{ display: "grid", gridTemplateColumns: "auto 1fr 1fr auto", gap: 8, alignItems: "end", padding: "10px 12px", background: "#252b40", borderRadius: 8, border: "1px solid #2a3050" }}>
               <div>
                 <label style={{ ...modalLabelStyle, fontSize: 11 }}>Type</label>
@@ -1275,11 +1313,10 @@ const D = {
 
 // Lesson type colors — dark-optimized
 const LESSON_TYPE_BG = {
-  instruction:     { bg: "#0d1f3d", border: "#1a3a6b", accent: "#4d8ef0" },
-  classwork:       { bg: "#2d2000", border: "#6b4a00", accent: "#f59e0b" },
-  "group-project": { bg: "#0d2d1a", border: "#1a5433", accent: "#22c55e" },
-  project:         { bg: "#1a0d3d", border: "#381a6b", accent: "#a855f7" },
-  assessment:      { bg: "#2d1a0d", border: "#6b3a1a", accent: "#f97316" },
+  instruction: { bg: "#0d1f3d", border: "#1a3a6b", accent: "#4d8ef0" },
+  classwork:   { bg: "#2d2000", border: "#6b4a00", accent: "#f59e0b" },
+  project:     { bg: "#1a0d3d", border: "#381a6b", accent: "#a855f7" },
+  assessment:  { bg: "#2d1a0d", border: "#6b3a1a", accent: "#f97316" },
 };
 
 // Styles used throughout the main UI
@@ -1569,6 +1606,47 @@ async function handleSaveStandards(list) {
     setShowResetConfirm(false);
   }
 
+  // ── One-time data migration: group-project → project, project-brief → instructions
+  function runMigration() {
+    let totalFixed = 0;
+    const newCurricula = {};
+    for (const courseId of Object.keys(curricula)) {
+      const data = curricula[courseId];
+      const newUnits = (data.units || []).map(u => ({
+        ...u,
+        lessons: u.lessons.map(l => {
+          let changed = false;
+          const updated = { ...l };
+          // Migrate lesson type
+          if (updated.type === "group-project") { updated.type = "project"; changed = true; }
+          // Migrate resource types
+          if ((updated.links || []).some(lk => lk.type === "project-brief")) {
+            updated.links = updated.links.map(lk => lk.type === "project-brief" ? { ...lk, type: "instructions" } : lk);
+            changed = true;
+          }
+          if (changed) totalFixed++;
+          return updated;
+        })
+      }));
+      newCurricula[courseId] = { ...data, units: newUnits };
+    }
+    setCurricula(newCurricula);
+    for (const courseId of Object.keys(newCurricula)) {
+      saveCurriculum(courseId, newCurricula[courseId]);
+    }
+    if (onCurriculaLoaded) onCurriculaLoaded(newCurricula);
+    alert(`✓ Migration complete — ${totalFixed} lesson${totalFixed !== 1 ? "s" : ""} updated across all courses.`);
+  }
+
+  const needsMigration = Object.values(curricula).some(data =>
+    (data.units || []).some(u =>
+      u.lessons.some(l =>
+        l.type === "group-project" ||
+        (l.links || []).some(lk => lk.type === "project-brief")
+      )
+    )
+  );
+
   if (loading) {
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center",
@@ -1766,6 +1844,19 @@ async function handleSaveStandards(list) {
       )}
 
 
+
+      {/* Migration banner */}
+      {needsMigration && (
+        <div style={{ padding: "12px 16px", marginBottom: 16, borderRadius: 10, background: "#1a1a0d", border: "1.5px solid #4a4a10", display: "flex", alignItems: "center", gap: 12 }}>
+          <AlertTriangle size={16} color="#f59e0b" style={{ flexShrink: 0 }} />
+          <span style={{ fontSize: 13, flex: 1, color: "#f59e0b" }}>
+            Your curriculum has lessons using old types (<strong>Group Project</strong> → Project, <strong>Project Brief</strong> → Instructions). Run the one-time migration to update all courses.
+          </span>
+          <button onClick={runMigration} style={{ ...btnStyle, background: "#f59e0b", color: "#0f1117", borderColor: "#f59e0b", fontWeight: 700 }}>
+            Run Migration
+          </button>
+        </div>
+      )}
 
       {/* Search Panel */}
       {showSearch && (

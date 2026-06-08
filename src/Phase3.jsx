@@ -7,7 +7,7 @@ import {
 } from './driveStorage';
 import {
   ChevronLeft, ChevronRight, Calendar, Clock, BookOpen,
-  X, Check, SkipForward, Play, AlertTriangle, Settings,
+  X, Check, AlertTriangle, Settings,
   Plus, Trash2, Edit2, User, ExternalLink
 } from "lucide-react";
 
@@ -39,18 +39,12 @@ const PATHWAYS = [
 const LESSON_TYPE_META = {
   instruction:     { label: "Instruction",   accent: "#4d8ef0", bg: "#0d1f3d", border: "#1a3a6b" },
   classwork:       { label: "Classwork",     accent: "#f59e0b", bg: "#2d2000", border: "#6b4a00" },
-  "group-project": { label: "Group Project", accent: "#22c55e", bg: "#0d2d1a", border: "#1a5433" },
+
   project:         { label: "Project",       accent: "#a855f7", bg: "#1a0d3d", border: "#381a6b" },
   assessment:      { label: "Assessment",    accent: "#f97316", bg: "#2d1a0d", border: "#6b3a1a" },
 };
 
-const STATUS_ORDER = ["planned", "in-progress", "taught", "skipped"];
-const STATUS_META = {
-  planned:      { label: "Planned",     color: "#5a6380", bg: "#1e2436", border: "#2a3050", icon: null },
-  "in-progress":{ label: "In Progress", color: "#f59e0b", bg: "#2d2000", border: "#6b4a00", icon: Play },
-  taught:       { label: "Taught",      color: "#22c55e", bg: "#0d2d1a", border: "#1a5433", icon: Check },
-  skipped:      { label: "Skipped",     color: "#f87171", bg: "#2d0f0f", border: "#6b1a1a", icon: SkipForward },
-};
+
 
 const DAY_NAMES  = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const DAY_SHORT  = ["Mon", "Tue", "Wed", "Thu", "Fri"];
@@ -627,9 +621,6 @@ function DayPopup({ dateKey, dayData, weeklyDayData, subDayData, lesson, unit, p
   const anchorRef = useRef(null);
   const [pos, setPos] = useState({ top: 0, left: 0 });
 
-  const status = weeklyDayData?.status || "planned";
-  const statusMeta = STATUS_META[status] || STATUS_META.planned;
-  const StatusIcon = statusMeta.icon;
   const typeMeta = lesson ? (LESSON_TYPE_META[lesson.type] || LESSON_TYPE_META.instruction) : null;
   const isSubDay = !!subDayData;
   const isBlock = dayData?.type === "block";
@@ -696,22 +687,13 @@ function DayPopup({ dateKey, dayData, weeklyDayData, subDayData, lesson, unit, p
       {/* Lesson content */}
       {lesson && (
         <div style={{ padding: "4px 14px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
-          {/* Type + status row */}
+          {/* Type row */}
           <div style={{ display: "flex", alignItems: "center", gap: 7, flexWrap: "wrap" }}>
             <span style={{
               fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase",
               padding: "2px 7px", borderRadius: 4,
               background: typeMeta.bg, color: typeMeta.accent, border: `1px solid ${typeMeta.border}`,
             }}>{typeMeta.label}</span>
-            <span style={{
-              fontSize: 10, fontWeight: 700, letterSpacing: "0.04em",
-              padding: "2px 8px", borderRadius: 20,
-              background: statusMeta.bg, color: statusMeta.color, border: `1px solid ${statusMeta.border}`,
-              display: "flex", alignItems: "center", gap: 4,
-            }}>
-              {StatusIcon && <StatusIcon size={9} />}
-              {statusMeta.label}
-            </span>
             {isSubDay && <span style={{ fontSize: 12 }}>🧑‍🏫</span>}
           </div>
 
@@ -802,13 +784,11 @@ function DayCell({
   onDragStart, onDrop, onDragEnd, onClick,
 }) {
   const [isDragOver, setIsDragOver] = useState(false);
-  const status = weeklyDayData?.status || "planned";
   const isBlock = dayData?.type === "block";
   const isLesson = dayData?.type === "lesson";
   const isEmpty = !dayData;
 
   const typeMeta = lesson ? (LESSON_TYPE_META[lesson.type] || LESSON_TYPE_META.instruction) : null;
-  const statusMeta = STATUS_META[status] || STATUS_META.planned;
 
   // Determine bg and border
   let cellBg = D.bg2;
@@ -916,14 +896,6 @@ function DayCell({
             <div style={{ fontSize: 11, color: D.text2, marginTop: 3 }}>
               {dayData.dayIndex}/{dayData.totalDays}d
             </div>
-          )}
-          {/* Status dot */}
-          {status !== "planned" && (
-            <div style={{
-              position: "absolute", bottom: 5, left: 6,
-              width: 6, height: 6, borderRadius: "50%",
-              background: statusMeta.color,
-            }} />
           )}
         </>
       )}
@@ -2247,9 +2219,9 @@ export default function Phase3({ isActive, selectedCourse: selectedCourseProp, c
         (cur.units || []).forEach(u => u.lessons.forEach(l => { lMap[l.id] = l; }));
         const entries = [];
         for (const [date, data] of Object.entries(wd)) {
-          if (data?.status || data?.note) {
+          if (data?.note) {
             const dayMeta = curMapping[date];
-            entries.push({ date, lessonTitle: lMap[dayMeta?.lessonId]?.title || "Unknown", status: data.status || "planned", note: data.note || "" });
+            entries.push({ date, lessonTitle: lMap[dayMeta?.lessonId]?.title || "Unknown", note: data.note });
           }
         }
         exportData.courses[c.id] = entries;
@@ -3055,7 +3027,6 @@ export default function Phase3({ isActive, selectedCourse: selectedCourseProp, c
   // Stats for the visible month
   const daysInMonth = weeks.flat().filter(d => parseDate(d).getMonth() === viewMonth);
   const instructionalInMonth = daysInMonth.filter(d => isInSemester(d) && !niSet.has(d));
-  const taughtCount = instructionalInMonth.filter(d => weeklyData[d]?.status === "taught").length;
   const lessonCount = instructionalInMonth.filter(d => mapping?.[d]?.type === "lesson").length;
 
   return (
@@ -3321,9 +3292,6 @@ export default function Phase3({ isActive, selectedCourse: selectedCourseProp, c
             <span style={{ color: pathwayColor, fontWeight: 700 }}>{instructionalInMonth.length}</span> instructional days this month
           </span>
           <span style={{ fontSize: 11, color: D.text2 }}>
-            <span style={{ color: "#22c55e", fontWeight: 700 }}>{taughtCount}</span> taught
-          </span>
-          <span style={{ fontSize: 11, color: D.text2 }}>
             <span style={{ color: D.text1, fontWeight: 700 }}>{lessonCount}</span> lessons mapped
           </span>
           {overflow.length > 0 && (
@@ -3423,16 +3391,6 @@ export default function Phase3({ isActive, selectedCourse: selectedCourseProp, c
             </span>
           ))}
           <span style={{ width: 1, height: 16, background: D.border1 }} />
-          <span style={{ fontSize: 11, color: D.text2, letterSpacing: "0.06em", textTransform: "uppercase" }}>Status:</span>
-          {STATUS_ORDER.map(s => {
-            const m = STATUS_META[s];
-            return (
-              <span key={s} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: m.color }}>
-                <span style={{ width: 6, height: 6, borderRadius: "50%", background: m.color }} />
-                {m.label}
-              </span>
-            );
-          })}
           <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: D.text2 }}>
             🧑‍🏫 Sub Day
           </span>

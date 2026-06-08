@@ -4,11 +4,13 @@ import {
   loadCalendarConfig, saveCalendarConfig,
   loadMapping, saveMapping,
   loadSubDays, saveSubDays,
+  loadPushConfig,
+  loadClassroomLog, saveClassroomLog,
 } from './driveStorage';
 import {
   ChevronLeft, ChevronRight, Calendar, Clock, BookOpen,
   ExternalLink, X, ChevronDown, ChevronUp, MessageSquare,
-  Check, SkipForward, Play, AlertTriangle, Settings,
+  AlertTriangle, Settings, Send, Check, Copy,
   RotateCcw, Sun, Zap, Eye, EyeOff, Plus, Trash2
 } from "lucide-react";
 import SubPlanModal from "./SubPlanModal";
@@ -44,7 +46,7 @@ const PATHWAYS = [
 const LESSON_TYPE_META = {
   instruction:     { label: "Instruction",   accent: "#4d8ef0", bg: "#0d1f3d", border: "#1a3a6b" },
   classwork:       { label: "Classwork",     accent: "#f59e0b", bg: "#2d2000", border: "#6b4a00" },
-  "group-project": { label: "Group Project", accent: "#22c55e", bg: "#0d2d1a", border: "#1a5433" },
+
   project:         { label: "Project",       accent: "#a855f7", bg: "#1a0d3d", border: "#381a6b" },
   assessment:      { label: "Assessment",    accent: "#f97316", bg: "#2d1a0d", border: "#6b3a1a" },
 };
@@ -52,20 +54,19 @@ const LESSON_TYPE_META = {
 const RESOURCE_TYPE_META = {
   "slide-deck":       { label: "Slide Deck",       icon: "📊", color: "#1a56c4" },
   "handout":          { label: "Handout",           icon: "📄", color: "#16a34a" },
-  "project-brief":    { label: "Project Brief",     icon: "📋", color: "#7c22d4" },
+  "instructions":     { label: "Instructions",      icon: "📋", color: "#7c22d4" },
   "rubric":           { label: "Rubric",            icon: "✅", color: "#ea580c" },
   "template":         { label: "Template",          icon: "📁", color: "#0891b2" },
   "external-tool":    { label: "External Tool",     icon: "🔗", color: "#dc2626" },
   "teacher-reference":{ label: "Teacher Reference", icon: "📖", color: "#854d0e" },
 };
 
-const STATUS_ORDER = ["planned", "in-progress", "taught", "skipped"];
-const STATUS_META = {
-  planned:     { label: "Planned",     color: "#5a6380", bg: "#1e2436", border: "#2a3050", icon: null },
-  "in-progress":{ label: "In Progress", color: "#f59e0b", bg: "#2d2000", border: "#6b4a00", icon: Play },
-  taught:      { label: "Taught",      color: "#22c55e", bg: "#0d2d1a", border: "#1a5433", icon: Check },
-  skipped:     { label: "Skipped",     color: "#f87171", bg: "#2d0f0f", border: "#6b1a1a", icon: SkipForward },
-};
+const RESOURCE_TYPE_LIST = Object.entries(RESOURCE_TYPE_META).map(([id, m]) => ({ id, ...m }));
+
+function uid() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
 
 const DAY_NAMES = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"];
 const DAY_SHORT = ["Mon", "Tue", "Wed", "Thu", "Fri"];
@@ -162,6 +163,38 @@ function isWeekend(dateString) {
   const d = parseDate(dateString);
   return d.getDay() === 0 || d.getDay() === 6;
 }
+
+// ─── CLASSROOM POST HELPERS ──────────────────────────────────────────────────
+
+function getFridayOf(mondayStr) {
+  return addDays(mondayStr, 4);
+}
+
+function parseDriveFileId(url) {
+  if (!url) return null;
+  const patterns = [
+    /\/file\/d\/([a-zA-Z0-9_-]+)/,
+    /\/d\/([a-zA-Z0-9_-]+)/,
+    /id=([a-zA-Z0-9_-]+)/,
+    /\/folders\/([a-zA-Z0-9_-]+)/,
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+function isDriveUrl(url) {
+  return !!(url && (url.includes("drive.google.com") || url.includes("docs.google.com")));
+}
+
+const CLASSROOM_TYPE = {
+  instruction: "material",
+  classwork:   "assignment",
+  project:     "assignment",
+  assessment:  "assignment",
+};
 
 function getWeekDates(mondayStr) {
   return DAY_NAMES.map((_, i) => addDays(mondayStr, i));
@@ -275,11 +308,6 @@ function swapDays(mapping, dateA, dateB) {
   return { mapping: newMapping };
 }
 
-function nextStatus(current) {
-  const idx = STATUS_ORDER.indexOf(current);
-  return STATUS_ORDER[(idx + 1) % STATUS_ORDER.length];
-}
-
 // Get bell ringer for a specific day of a lesson (1-indexed)
 // Handles migration from legacy single bellRinger string
 function getBellRinger(lesson, dayIndex) {
@@ -305,24 +333,6 @@ function TypeBadge({ type, small }) {
       background: m.bg, color: m.accent, textTransform: "uppercase",
       border: `1px solid ${m.border}`, whiteSpace: "nowrap", flexShrink: 0,
     }}>{m.label}</span>
-  );
-}
-
-function StatusBadge({ status, onClick }) {
-  const m = STATUS_META[status] || STATUS_META.planned;
-  const Icon = m.icon;
-  return (
-    <button onClick={onClick} style={{
-      display: "inline-flex", alignItems: "center", gap: 5,
-      fontSize: 11, fontWeight: 700, letterSpacing: "0.04em",
-      padding: "3px 9px", borderRadius: 20,
-      background: m.bg, color: m.color,
-      border: `1.5px solid ${m.border}`, cursor: onClick ? "pointer" : "default",
-      whiteSpace: "nowrap", fontFamily: "inherit",
-    }}>
-      {Icon && <Icon size={10} />}
-      {m.label}
-    </button>
   );
 }
 
@@ -398,12 +408,11 @@ function QuickNote({ dateStr: ds, existingNote, lesson, onSave, onClose, pathway
 
 // ─── DETAIL PANEL ────────────────────────────────────────────────────────────
 
-function DetailPanel({ dateKey, lesson, unit, dayMeta, weeklyData, onClose, onStatusChange, onNoteChange, onBellRingerChange, pathwayColor }) {
-  const status = weeklyData?.[dateKey]?.status || "planned";
+function DetailPanel({ dateKey, lesson, unit, dayMeta, weeklyData, onClose, onNoteChange, onBellRingerChange, onResourcesChange, pathwayColor, pushConfig, classroomLog, onClassroomPosted, mondayStr }) {
   const note = weeklyData?.[dateKey]?.note || "";
   const [localNote, setLocalNote] = useState(note);
   const [noteDirty, setNoteDirty] = useState(false);
-  const [lastYearData, setLastYearData] = useState(null); // { map, label }
+  const [lastYearData, setLastYearData] = useState(null);
   const typeMeta = LESSON_TYPE_META[lesson?.type] || LESSON_TYPE_META.instruction;
 
   // Bell ringer editable state
@@ -411,6 +420,172 @@ function DetailPanel({ dateKey, lesson, unit, dayMeta, weeklyData, onClose, onSt
   const currentBR = getBellRinger(lesson, dayIndex);
   const [localBR, setLocalBR] = useState(currentBR);
   const [brDirty, setBrDirty] = useState(false);
+
+  // ── Resource editing state ────────────────────────────────────────────────
+  const [localLinks, setLocalLinks] = useState(lesson?.links || []);
+  const [linksDirty, setLinksDirty] = useState(false);
+  const [editingLinkId, setEditingLinkId] = useState(null); // id of link being edited inline
+  const [newLink, setNewLink] = useState({ type: "slide-deck", label: "", url: "" });
+  const [showAddLink, setShowAddLink] = useState(false);
+
+  // Reset resource state when lesson changes
+  useEffect(() => {
+    setLocalLinks(lesson?.links || []);
+    setLinksDirty(false);
+    setEditingLinkId(null);
+    setShowAddLink(false);
+    setNewLink({ type: "slide-deck", label: "", url: "" });
+  }, [lesson?.id]);
+
+  const saveLinks = () => {
+    if (onResourcesChange) {
+      onResourcesChange(lesson, localLinks);
+      setLinksDirty(false);
+      setEditingLinkId(null);
+    }
+  };
+
+  const cancelLinks = () => {
+    setLocalLinks(lesson?.links || []);
+    setLinksDirty(false);
+    setEditingLinkId(null);
+    setShowAddLink(false);
+    setNewLink({ type: "slide-deck", label: "", url: "" });
+  };
+
+  const addLink = () => {
+    if (!newLink.label.trim() || !newLink.url.trim()) return;
+    const isDrive = isDriveUrl(newLink.url);
+    const isInstruction = lesson?.type === "instruction";
+    const typeMeta = RESOURCE_TYPE_LIST.find(t => t.id === newLink.type);
+    const entry = {
+      id: uid(),
+      type: newLink.type,
+      label: newLink.label.trim(),
+      url: newLink.url.trim(),
+      postToClassroom: typeMeta?.id === "teacher-reference" ? false : true,
+      makeACopy: (!isInstruction && isDrive && (newLink.type === "handout" || newLink.type === "template")) ? true : false,
+    };
+    const updated = [...localLinks, entry];
+    setLocalLinks(updated);
+    setLinksDirty(true);
+    setNewLink({ type: "slide-deck", label: "", url: "" });
+    setShowAddLink(false);
+  };
+
+  const removeLink = (id) => {
+    setLocalLinks(ls => ls.filter(l => l.id !== id));
+    setLinksDirty(true);
+    if (editingLinkId === id) setEditingLinkId(null);
+  };
+
+  const updateLink = (id, field, value) => {
+    setLocalLinks(ls => ls.map(l => l.id === id ? { ...l, [field]: value } : l));
+    setLinksDirty(true);
+  };
+
+  // ── Classroom post state ──────────────────────────────────────────────────
+  const isDay1 = (dayMeta?.dayIndex || 1) === 1;
+  const classroomType = CLASSROOM_TYPE[lesson?.type] || "assignment";
+  const isMaterial = classroomType === "material";
+  const fridayStr = mondayStr ? getFridayOf(mondayStr) : "";
+  const postedEntry = lesson?.id ? (classroomLog?.[lesson.id] || null) : null;
+
+  const [postResources, setPostResources] = useState([]);
+  const [dueDate, setDueDate] = useState(fridayStr);
+  const [showPostPanel, setShowPostPanel] = useState(false);
+  const [pushStatus, setPushStatus] = useState(null); // null | "loading" | "success" | "error"
+  const [pushMessage, setPushMessage] = useState("");
+  const [postUrl, setPostUrl] = useState(null);
+
+  // Sync postResources when localLinks change (so Classroom post reflects edits)
+  useEffect(() => {
+    setPostResources(
+      localLinks
+        .filter(lk => lk.postToClassroom !== false)
+        .map(lk => ({ ...lk, _include: true }))
+    );
+  }, [localLinks]);
+
+  // Reset push UI state when lesson/date changes
+  useEffect(() => {
+    setDueDate(fridayStr);
+    setPushStatus(null);
+    setPushMessage("");
+    setPostUrl(null);
+    setShowPostPanel(false);
+  }, [lesson?.id, dateKey]);
+
+  const handlePost = async () => {
+    if (!pushConfig?.scriptUrl) {
+      setPushStatus("error");
+      setPushMessage("No Apps Script URL configured — set it up in the Bell Ringer Push ⚙ config.");
+      setShowPostPanel(true);
+      return;
+    }
+    const classroomIds = (pushConfig.classroomIds || "").split(",").map(s => s.trim()).filter(Boolean);
+    if (classroomIds.length === 0) {
+      setPushStatus("error");
+      setPushMessage("No Classroom course IDs configured — add them in the Bell Ringer Push ⚙ config.");
+      setShowPostPanel(true);
+      return;
+    }
+
+    setPushStatus("loading");
+    setShowPostPanel(true);
+
+    const attachments = postResources
+      .filter(r => r._include)
+      .map(r => {
+        const driveId = isDriveUrl(r.url) ? parseDriveFileId(r.url) : null;
+        return { label: r.label, url: r.url, driveId, makeACopy: !isMaterial && !!r.makeACopy && !!driveId, isDrive: !!driveId };
+      });
+
+    const payload = {
+      action:        "postLesson",
+      classroomIds,
+      lessonTitle:   lesson.title,
+      lessonType:    lesson.type,
+      classroomType,
+      objective:     lesson.objective || "",
+      dueDate:       isMaterial ? null : dueDate,
+      points:        isMaterial ? null : 4,
+      attachments,
+    };
+
+    try {
+      const res  = await fetch(pushConfig.scriptUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify(payload),
+      });
+      const text = await res.text();
+      let result;
+      try {
+        result = JSON.parse(text);
+      } catch (_) {
+        setPushStatus("error");
+        setPushMessage(text.length > 0
+          ? `Unexpected response: ${text.slice(0, 200)}`
+          : "Empty response from Apps Script. Check Executions log.");
+        return;
+      }
+
+      if (result.ok !== false) {
+        setPushStatus("success");
+        setPushMessage(result.message || `Posted "${lesson.title}" successfully!`);
+        if (result.postUrl) setPostUrl(result.postUrl);
+        const entry = { ts: new Date().toISOString(), lessonTitle: lesson.title, classroomType, dueDate: isMaterial ? null : dueDate, postUrl: result.postUrl || null };
+        onClassroomPosted(lesson.id, entry);
+      } else {
+        setPushStatus("error");
+        setPushMessage(result.message || "Post failed. Check Apps Script Executions log.");
+      }
+    } catch (err) {
+      setPushStatus("error");
+      setPushMessage(`Network error: ${err.message}`);
+    }
+  };
 
   // Reset bell ringer when lesson/day changes
   useEffect(() => {
@@ -449,7 +624,7 @@ function DetailPanel({ dateKey, lesson, unit, dayMeta, weeklyData, onClose, onSt
           const noteMap = {};
           for (const courseEntries of Object.values(data.courses || {})) {
             for (const entry of courseEntries) {
-              if (entry.note || entry.status !== "planned") noteMap[entry.lessonTitle] = entry;
+              if (entry.note) noteMap[entry.lessonTitle] = entry;
             }
           }
           setLastYearData({ map: noteMap, label: data.semesterLabel || "Last year" });
@@ -487,11 +662,39 @@ function DetailPanel({ dateKey, lesson, unit, dayMeta, weeklyData, onClose, onSt
         <button onClick={onClose} style={{ ...iconBtn, marginTop: -2, flexShrink: 0 }}><X size={15} /></button>
       </div>
 
-      {/* Type + status */}
+      {/* Posted status — shown at top when lesson has been posted */}
+      {postedEntry && (
+        <div style={{ padding: "8px 18px", background: "#0d2d1a", borderBottom: `1px solid #1a5433`, display: "flex", alignItems: "center", gap: 8 }}>
+          <Check size={13} color="#22c55e" style={{ flexShrink: 0 }} />
+          <span style={{ fontSize: 12, color: "#22c55e", flex: 1 }}>
+            {postedEntry.classroomType === "material" ? "Material" : "Assignment"} posted
+            {" · "}{new Date(postedEntry.ts).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+          </span>
+          {postedEntry.postUrl && (
+            <a href={postedEntry.postUrl} target="_blank" rel="noopener noreferrer" style={{ color: "#4d8ef0", display: "flex", flexShrink: 0 }}>
+              <ExternalLink size={12} />
+            </a>
+          )}
+        </div>
+      )}
+
+      {/* Success message from most recent push */}
+      {pushStatus === "success" && !postedEntry && (
+        <div style={{ padding: "8px 18px", background: "#0d2d1a", borderBottom: `1px solid #1a5433`, display: "flex", alignItems: "center", gap: 8 }}>
+          <Check size={13} color="#22c55e" style={{ flexShrink: 0 }} />
+          <span style={{ fontSize: 12, color: "#22c55e", flex: 1 }}>{pushMessage}</span>
+          {postUrl && (
+            <a href={postUrl} target="_blank" rel="noopener noreferrer" style={{ color: "#4d8ef0", display: "flex", flexShrink: 0 }}>
+              <ExternalLink size={12} />
+            </a>
+          )}
+        </div>
+      )}
+
+      {/* Type */}
       <div style={{ padding: "12px 18px", borderBottom: `1px solid ${D.border0}`, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
         <TypeBadge type={lesson.type} />
         <DayPill n={lesson.estimatedDays} color={pathwayColor} />
-        <StatusBadge status={status} onClick={() => onStatusChange(dateKey, nextStatus(status))} />
       </div>
 
       {/* Objective */}
@@ -502,29 +705,167 @@ function DetailPanel({ dateKey, lesson, unit, dayMeta, weeklyData, onClose, onSt
         </div>
       )}
 
-      {/* Resources */}
-      {lesson.links?.length > 0 && (
-        <div style={{ padding: "12px 18px", borderBottom: `1px solid ${D.border0}` }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: D.text2, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 8 }}>Resources ({lesson.links.length})</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            {lesson.links.map(lk => {
-              const rm = RESOURCE_TYPE_META[lk.type] || RESOURCE_TYPE_META["external-tool"];
-              return (
-                <a key={lk.id} href={lk.url} target="_blank" rel="noopener noreferrer" style={{
-                  display: "flex", alignItems: "center", gap: 8, padding: "7px 10px",
-                  borderRadius: 8, background: D.bg2, border: `1px solid ${D.border1}`,
-                  textDecoration: "none", color: D.text0,
-                }}>
-                  <span style={{ fontSize: 13 }}>{rm.icon}</span>
-                  <span style={{ flex: 1, fontSize: 13, fontWeight: 500 }}>{lk.label}</span>
-                  <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: rm.color + "18", color: rm.color, border: `1px solid ${rm.color}30` }}>{rm.label}</span>
-                  <ExternalLink size={11} color={D.text2} />
-                </a>
-              );
-            })}
+      {/* Resources — editable */}
+      <div style={{ padding: "12px 18px", borderBottom: `1px solid ${D.border0}` }}>
+        <div style={{ display: "flex", alignItems: "center", marginBottom: 8 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: D.text2, letterSpacing: "0.06em", textTransform: "uppercase", flex: 1 }}>
+            Resources {localLinks.length > 0 && `(${localLinks.length})`}
           </div>
+          {linksDirty ? (
+            <div style={{ display: "flex", gap: 6 }}>
+              <button onClick={saveLinks} style={{ ...btnStyle, fontSize: 11, padding: "3px 10px", background: pathwayColor + "22", color: pathwayColor, borderColor: pathwayColor + "50", fontWeight: 600 }}>
+                Save
+              </button>
+              <button onClick={cancelLinks} style={{ ...btnStyle, fontSize: 11, padding: "3px 10px" }}>
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowAddLink(s => !s)}
+              style={{ ...btnStyle, fontSize: 11, padding: "3px 10px", gap: 4 }}
+              title="Add resource"
+            >
+              <Plus size={12} /> Add
+            </button>
+          )}
         </div>
-      )}
+
+        {/* Existing resources */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+          {localLinks.map(lk => {
+            const rm = RESOURCE_TYPE_META[lk.type] || RESOURCE_TYPE_META["external-tool"];
+            const isEditing = editingLinkId === lk.id;
+            return (
+              <div key={lk.id} style={{ borderRadius: 8, border: `1px solid ${isEditing ? D.border2 : D.border1}`, background: isEditing ? D.bg3 : D.bg2, overflow: "hidden" }}>
+                {/* Row — always visible */}
+                <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px" }}>
+                  <span style={{ fontSize: 13, flexShrink: 0 }}>{rm.icon}</span>
+                  <span style={{ flex: 1, fontSize: 13, fontWeight: 500, color: D.text0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{lk.label}</span>
+                  <span style={{ fontSize: 10, padding: "1px 5px", borderRadius: 3, background: rm.color + "18", color: rm.color, border: `1px solid ${rm.color}30`, flexShrink: 0 }}>{rm.label}</span>
+                  <a href={lk.url} target="_blank" rel="noopener noreferrer" style={{ color: D.text2, display: "flex", flexShrink: 0 }} onClick={e => e.stopPropagation()}>
+                    <ExternalLink size={11} />
+                  </a>
+                  <button
+                    onClick={() => setEditingLinkId(isEditing ? null : lk.id)}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: isEditing ? pathwayColor : D.text2, padding: 2, display: "flex", flexShrink: 0 }}
+                    title="Edit"
+                  >
+                    <Settings size={11} />
+                  </button>
+                  <button
+                    onClick={() => removeLink(lk.id)}
+                    style={{ background: "none", border: "none", cursor: "pointer", color: "#f87171", padding: 2, display: "flex", flexShrink: 0 }}
+                    title="Remove"
+                  >
+                    <X size={11} />
+                  </button>
+                </div>
+
+                {/* Inline edit form */}
+                {isEditing && (
+                  <div style={{ padding: "8px 10px 10px", borderTop: `1px solid ${D.border1}`, display: "flex", flexDirection: "column", gap: 7 }}>
+                    <div style={{ display: "flex", gap: 7 }}>
+                      <select
+                        value={lk.type}
+                        onChange={e => updateLink(lk.id, "type", e.target.value)}
+                        style={{ ...inputStyle, fontSize: 12, padding: "4px 7px", flex: "0 0 auto", width: 130 }}
+                      >
+                        {RESOURCE_TYPE_LIST.map(t => (
+                          <option key={t.id} value={t.id}>{t.icon} {t.label}</option>
+                        ))}
+                      </select>
+                      <input
+                        value={lk.label}
+                        onChange={e => updateLink(lk.id, "label", e.target.value)}
+                        placeholder="Label"
+                        style={{ ...inputStyle, fontSize: 12, padding: "4px 7px", flex: 1 }}
+                      />
+                    </div>
+                    <input
+                      value={lk.url}
+                      onChange={e => updateLink(lk.id, "url", e.target.value)}
+                      placeholder="URL"
+                      style={{ ...inputStyle, fontSize: 12, padding: "4px 7px" }}
+                    />
+                    {/* Classroom toggles */}
+                    <div style={{ display: "flex", gap: 14, paddingTop: 2 }}>
+                      <label style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", userSelect: "none" }}>
+                        <input
+                          type="checkbox"
+                          checked={lk.postToClassroom !== false}
+                          onChange={e => updateLink(lk.id, "postToClassroom", e.target.checked)}
+                          style={{ accentColor: "#1a56c4", width: 13, height: 13 }}
+                        />
+                        <span style={{ fontSize: 11, color: D.text2 }}>Post to Classroom</span>
+                      </label>
+                      {isDriveUrl(lk.url) && lesson?.type !== "instruction" && (
+                        <label style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", userSelect: "none" }}>
+                          <input
+                            type="checkbox"
+                            checked={!!lk.makeACopy}
+                            onChange={e => updateLink(lk.id, "makeACopy", e.target.checked)}
+                            style={{ accentColor: "#a855f7", width: 13, height: 13 }}
+                          />
+                          <span style={{ fontSize: 11, color: D.text2 }}>Copy per student</span>
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Add new resource form */}
+        {showAddLink && (
+          <div style={{ marginTop: 8, padding: "10px 10px", borderRadius: 8, border: `1px solid ${D.border2}`, background: D.bg3, display: "flex", flexDirection: "column", gap: 7 }}>
+            <div style={{ display: "flex", gap: 7 }}>
+              <select
+                value={newLink.type}
+                onChange={e => setNewLink(l => ({ ...l, type: e.target.value }))}
+                style={{ ...inputStyle, fontSize: 12, padding: "4px 7px", flex: "0 0 auto", width: 130 }}
+              >
+                {RESOURCE_TYPE_LIST.map(t => (
+                  <option key={t.id} value={t.id}>{t.icon} {t.label}</option>
+                ))}
+              </select>
+              <input
+                value={newLink.label}
+                onChange={e => setNewLink(l => ({ ...l, label: e.target.value }))}
+                placeholder="Label"
+                style={{ ...inputStyle, fontSize: 12, padding: "4px 7px", flex: 1 }}
+              />
+            </div>
+            <input
+              value={newLink.url}
+              onChange={e => setNewLink(l => ({ ...l, url: e.target.value }))}
+              placeholder="https://..."
+              style={{ ...inputStyle, fontSize: 12, padding: "4px 7px" }}
+            />
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                onClick={addLink}
+                disabled={!newLink.label.trim() || !newLink.url.trim()}
+                style={{ ...btnStyle, fontSize: 12, padding: "4px 12px", background: pathwayColor + "22", color: pathwayColor, borderColor: pathwayColor + "50", fontWeight: 600, opacity: (!newLink.label.trim() || !newLink.url.trim()) ? 0.5 : 1 }}
+              >
+                <Plus size={12} /> Add Resource
+              </button>
+              <button onClick={() => { setShowAddLink(false); setNewLink({ type: "slide-deck", label: "", url: "" }); }} style={{ ...btnStyle, fontSize: 12, padding: "4px 12px" }}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Empty state */}
+        {localLinks.length === 0 && !showAddLink && (
+          <div style={{ fontSize: 12, color: D.text2, fontStyle: "italic", padding: "4px 0" }}>
+            No resources yet — click Add to attach links.
+          </div>
+        )}
+      </div>
 
       {/* Standards */}
       {lesson.standards?.length > 0 && (
@@ -535,6 +876,123 @@ function DetailPanel({ dateKey, lesson, unit, dayMeta, weeklyData, onClose, onSt
               <span key={s} style={{ fontSize: 11, padding: "2px 8px", borderRadius: 10, background: D.bg2, color: D.text2, border: `1px solid ${D.border1}` }}>{s.split("–")[0].trim()}</span>
             ))}
           </div>
+        </div>
+      )}
+
+      {/* Post to Classroom — day 1 only */}
+      {isDay1 && (
+        <div style={{ borderBottom: `1px solid ${D.border0}` }}>
+          {/* Section header — always visible */}
+          <div
+            onClick={() => setShowPostPanel(s => !s)}
+            style={{ padding: "10px 18px", display: "flex", alignItems: "center", gap: 8, cursor: "pointer", userSelect: "none" }}
+          >
+            <span style={{ fontSize: 13 }}>🏫</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: D.text2, letterSpacing: "0.06em", textTransform: "uppercase", flex: 1 }}>
+              Post to Classroom
+            </span>
+            {/* Inline type badge */}
+            <span style={{
+              fontSize: 10, fontWeight: 700, padding: "2px 7px", borderRadius: 4,
+              background: isMaterial ? "#0d1f3d" : "#1a0d3d",
+              color: isMaterial ? "#4d8ef0" : "#a855f7",
+              border: `1px solid ${isMaterial ? "#1a3a6b" : "#381a6b"}`,
+              textTransform: "uppercase", letterSpacing: "0.05em",
+            }}>
+              {isMaterial ? "Material" : "Assignment"}
+            </span>
+            {pushStatus === "loading"
+              ? <span style={{ fontSize: 11, color: D.text2 }}>Posting…</span>
+              : pushStatus === "error"
+              ? <AlertTriangle size={13} color="#f97316" />
+              : postedEntry
+              ? <Check size={13} color="#22c55e" />
+              : null}
+            {showPostPanel ? <ChevronUp size={13} color={D.text2} /> : <ChevronDown size={13} color={D.text2} />}
+          </div>
+
+          {/* Expanded post panel */}
+          {showPostPanel && (
+            <div style={{ padding: "0 18px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+
+              {/* Due date — assignments only */}
+              {!isMaterial && (
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <Calendar size={13} color={D.text2} style={{ flexShrink: 0 }} />
+                  <span style={{ fontSize: 12, color: D.text2, minWidth: 55 }}>Due date</span>
+                  <input
+                    type="date"
+                    value={dueDate}
+                    onChange={e => setDueDate(e.target.value)}
+                    style={{ ...inputStyle, width: "auto", fontSize: 12, padding: "4px 8px" }}
+                  />
+                  <span style={{ fontSize: 11, color: D.text2 }}>· 4 pts</span>
+                </div>
+              )}
+
+              {/* Resource checklist */}
+              {postResources.length > 0 ? (
+                <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
+                  {postResources.map(r => {
+                    const drive = isDriveUrl(r.url);
+                    const canCopy = !isMaterial && drive;
+                    return (
+                      <div key={r.id} style={{
+                        padding: "7px 10px", borderRadius: 7, display: "flex", alignItems: "center", gap: 8,
+                        background: r._include ? D.bg3 : D.bg2,
+                        border: `1px solid ${r._include ? D.border2 : D.border0}`,
+                        opacity: r._include ? 1 : 0.5,
+                      }}>
+                        <input type="checkbox" checked={r._include}
+                          onChange={() => setPostResources(rs => rs.map(x => x.id === r.id ? { ...x, _include: !x._include } : x))}
+                          style={{ accentColor: pathwayColor, width: 13, height: 13, flexShrink: 0 }} />
+                        <span style={{ flex: 1, fontSize: 12, color: D.text0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.label}</span>
+                        {canCopy && r._include && (
+                          <label style={{ display: "flex", alignItems: "center", gap: 4, cursor: "pointer", flexShrink: 0 }}>
+                            <input type="checkbox" checked={!!r.makeACopy}
+                              onChange={() => setPostResources(rs => rs.map(x => x.id === r.id ? { ...x, makeACopy: !x.makeACopy } : x))}
+                              style={{ accentColor: "#a855f7", width: 12, height: 12 }} />
+                            <span style={{ fontSize: 10, color: D.text2, whiteSpace: "nowrap" }}>
+                              <Copy size={9} style={{ display: "inline", marginRight: 2 }} />copy
+                            </span>
+                          </label>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div style={{ fontSize: 12, color: D.text2, fontStyle: "italic" }}>
+                  No resources flagged for Classroom — enable "Post to Classroom" on resources in Phase 1.
+                </div>
+              )}
+
+              {/* Error message */}
+              {pushStatus === "error" && (
+                <div style={{ padding: "8px 10px", borderRadius: 7, background: "#2d1a0d", border: "1px solid #6b3a1a", fontSize: 12, color: "#f97316", lineHeight: 1.5, display: "flex", gap: 7, alignItems: "flex-start" }}>
+                  <AlertTriangle size={12} style={{ flexShrink: 0, marginTop: 1 }} />
+                  <span style={{ wordBreak: "break-word" }}>{pushMessage}</span>
+                </div>
+              )}
+
+              {/* Post button */}
+              <button
+                onClick={handlePost}
+                disabled={pushStatus === "loading"}
+                style={{
+                  ...btnStyle,
+                  background: pushStatus === "loading" ? D.bg3 : pathwayColor,
+                  color: "white", borderColor: pathwayColor, fontWeight: 600,
+                  opacity: pushStatus === "loading" ? 0.7 : 1,
+                  cursor: pushStatus === "loading" ? "not-allowed" : "pointer",
+                  justifyContent: "center", display: "flex", gap: 7,
+                }}
+              >
+                <Send size={13} />
+                {pushStatus === "loading" ? "Posting…" : postedEntry ? "Re-post to Classroom" : "Post to Classroom"}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -600,9 +1058,6 @@ function DetailPanel({ dateKey, lesson, unit, dayMeta, weeklyData, onClose, onSt
             <div style={{ fontSize: 10, fontWeight: 700, color: "#4d8ef0", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4 }}>
               {lastYearData.label}
             </div>
-            {lastYearEntry.status && lastYearEntry.status !== "planned" && (
-              <div style={{ fontSize: 11, color: "#7aabf0", marginBottom: 4 }}>Status: {lastYearEntry.status}</div>
-            )}
             {lastYearEntry.note ? (
               <p style={{ margin: 0, fontSize: 12, color: "#7aabf0", lineHeight: 1.55, fontStyle: "italic" }}>{lastYearEntry.note}</p>
             ) : (
@@ -634,8 +1089,7 @@ function DetailPanel({ dateKey, lesson, unit, dayMeta, weeklyData, onClose, onSt
 
 // ─── LESSON CARD (grid cell) ─────────────────────────────────────────────────
 
-function LessonCard({ dateKey, lesson, unit, dayMeta, weeklyData, isSubDay, isToday, isSelected, isDragOver, pathwayColor, onSelect, onStatusChange, onQuickNote, onContextMenu, onDragStart, onDragOver, onDrop, onDragEnd }) {
-  const status = weeklyData?.[dateKey]?.status || "planned";
+function LessonCard({ dateKey, lesson, unit, dayMeta, weeklyData, isSubDay, isToday, isSelected, isDragOver, pathwayColor, onSelect, onQuickNote, onContextMenu, onDragStart, onDragOver, onDrop, onDragEnd }) {
   const hasNote = !!(weeklyData?.[dateKey]?.note);
   const typeMeta = LESSON_TYPE_META[lesson?.type] || LESSON_TYPE_META.instruction;
 
@@ -692,9 +1146,7 @@ function LessonCard({ dateKey, lesson, unit, dayMeta, weeklyData, isSubDay, isTo
           <div style={{ fontSize: 10, color: D.text2 }}>🔗 {lesson.links.length} resource{lesson.links.length !== 1 ? "s" : ""}</div>
         )}
       </div>
-      <div style={{ padding: "6px 10px 8px", borderTop: `1px solid ${isSubDay ? "#4a3010" : D.border0}`, display: "flex", alignItems: "center", gap: 6 }}>
-        <StatusBadge status={status} onClick={(e) => { e?.stopPropagation(); onStatusChange(dateKey, nextStatus(status)); }} />
-        <div style={{ flex: 1 }} />
+      <div style={{ padding: "6px 10px 8px", borderTop: `1px solid ${isSubDay ? "#4a3010" : D.border0}`, display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 6 }}>
         <button
           onClick={e => { e.stopPropagation(); onQuickNote(dateKey); }}
           style={{ ...iconBtn, padding: 4, color: hasNote ? pathwayColor : D.text2, background: hasNote ? pathwayColor + "18" : "none", borderRadius: 5 }}
@@ -752,38 +1204,6 @@ function EmptyCell({ dateKey, isToday, isNonInstructional, isDragOver, onDragOve
       <span style={{ fontSize: 11, color: D.text2 }}>
         {isNonInstructional ? "No school" : isDragOver ? "Drop to swap" : "—"}
       </span>
-    </div>
-  );
-}
-
-// ─── WEEK PROGRESS BAR ────────────────────────────────────────────────────────
-
-function WeekProgress({ weekDates, weeklyData, mapping }) {
-  const counts = { planned: 0, "in-progress": 0, taught: 0, skipped: 0, empty: 0 };
-  let total = 0;
-  for (const d of weekDates) {
-    if (mapping?.[d]) {
-      total++;
-      const s = weeklyData?.[d]?.status || "planned";
-      counts[s]++;
-    }
-  }
-  if (!total) return null;
-  const pct = s => Math.round((counts[s] / total) * 100);
-
-  return (
-    <div style={{ display: "flex", gap: 12, alignItems: "center", fontSize: 12 }}>
-      {["taught", "in-progress", "skipped", "planned"].map(s => {
-        const m = STATUS_META[s];
-        const p = pct(s);
-        if (!p) return null;
-        return (
-          <span key={s} style={{ display: "flex", alignItems: "center", gap: 5, color: m.color }}>
-            <span style={{ width: 8, height: 8, borderRadius: "50%", background: m.color, display: "inline-block" }} />
-            {p}% {m.label}
-          </span>
-        );
-      })}
     </div>
   );
 }
@@ -1042,6 +1462,8 @@ export default function Phase2({ isActive, calendarVersion, selectedCourse: sele
   const [contextMenu, setContextMenu] = useState(null);
   const [dragSource, setDragSource] = useState(null);
   const [swapError, setSwapError] = useState(null);
+  const [pushConfig, setPushConfig] = useState(null);
+  const [classroomLog, setClassroomLog] = useState({});
 
   const [currentMonday, setCurrentMonday] = useState(getMondayOf(todayStr()));
 
@@ -1066,8 +1488,13 @@ export default function Phase2({ isActive, calendarVersion, selectedCourse: sele
     if (selectedCourseProp) {
       setSelectedCourse(selectedCourseProp);
       setSelectedDay(null);
+      // Reload push config and classroom log for new course
+      if (driveReady) {
+        loadPushConfig(selectedCourseProp).then(cfg => { if (cfg) setPushConfig(cfg); else setPushConfig(null); });
+        loadClassroomLog(selectedCourseProp).then(log => setClassroomLog(log || {}));
+      }
     }
-  }, [selectedCourseProp]);
+  }, [selectedCourseProp, driveReady]);
 
   // ── Sync curricula from prop (loaded by Phase 1 from Drive)
   useEffect(() => {
@@ -1158,6 +1585,12 @@ export default function Phase2({ isActive, calendarVersion, selectedCourse: sele
       setMappings(maps);
       setOverflows(ovfl);
       setSubDays(await loadSubDays());
+      // Load bell ringer push config (reused for Classroom posting)
+      const pCfg = await loadPushConfig(selectedCourse);
+      if (pCfg) setPushConfig(pCfg);
+      // Load classroom post log
+      const cLog = await loadClassroomLog(selectedCourse);
+      if (cLog) setClassroomLog(cLog);
       setLoading(false);
     }
     init();
@@ -1209,18 +1642,41 @@ export default function Phase2({ isActive, calendarVersion, selectedCourse: sele
     });
   }, []);
 
-  const handleStatusChange = (dateKey, newStatus) => {
-    updateWeeklyData(selectedCourse, wd => ({
-      ...wd,
-      [dateKey]: { ...wd[dateKey], status: newStatus },
-    }));
-  };
-
   const handleNoteChange = (dateKey, note) => {
     updateWeeklyData(selectedCourse, wd => ({
       ...wd,
       [dateKey]: { ...wd[dateKey], note },
     }));
+  };
+
+  const handleClassroomPosted = (lessonId, entry) => {
+    const newLog = { ...classroomLog, [lessonId]: entry };
+    setClassroomLog(newLog);
+    saveClassroomLog(selectedCourse, newLog);
+  };
+
+  const handleResourcesChange = (lesson, newLinks) => {
+    try {
+      const curriculum = curricula[selectedCourse];
+      if (!curriculum) return;
+      let updated = false;
+      const newCurriculum = {
+        ...curriculum,
+        units: curriculum.units.map(unit => ({
+          ...unit,
+          lessons: unit.lessons.map(l => {
+            if (l.id !== lesson.id) return l;
+            updated = true;
+            return { ...l, links: newLinks };
+          }),
+        })),
+      };
+      if (updated) {
+        const next = { ...curricula, [selectedCourse]: newCurriculum };
+        setCurricula(next);
+        if (onCurriculaChange) onCurriculaChange(next);
+      }
+    } catch (_) {}
   };
 
   // ── Bell ringer inline edit — writes back to Drive via onCurriculaChange
@@ -1695,13 +2151,6 @@ export default function Phase2({ isActive, calendarVersion, selectedCourse: sele
           {/* Calendar grid */}
           {hasLessons && calendarConfig && (
             <>
-              {/* Week progress */}
-              {mapping && (
-                <div style={{ marginBottom: 14, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-                  <WeekProgress weekDates={weekDates} weeklyData={weeklyData} mapping={mapping} />
-                </div>
-              )}
-
               {/* Day headers */}
               <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10, marginBottom: 8 }}>
                 {weekDates.map((d, i) => {
@@ -1781,7 +2230,6 @@ export default function Phase2({ isActive, calendarVersion, selectedCourse: sele
                         isDragOver={dragSource !== null && dragSource !== d}
                         pathwayColor={pathwayColor}
                         onSelect={setSelectedDay}
-                        onStatusChange={handleStatusChange}
                         onQuickNote={setQuickNoteDay}
                         onContextMenu={(e, dk) => setContextMenu({ type: "lesson", dateKey: dk, x: e.clientX, y: e.clientY })}
                         onDragStart={(dk) => setDragSource(dk)}
@@ -1810,17 +2258,7 @@ export default function Phase2({ isActive, calendarVersion, selectedCourse: sele
 
               {/* Status legend */}
               <div style={{ marginTop: 20, display: "flex", gap: 14, flexWrap: "wrap", alignItems: "center" }}>
-                <span style={{ fontSize: 11, color: D.text2, letterSpacing: "0.06em", textTransform: "uppercase" }}>Status:</span>
-                {STATUS_ORDER.map(s => {
-                  const m = STATUS_META[s];
-                  return (
-                    <span key={s} style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: m.color }}>
-                      <span style={{ width: 8, height: 8, borderRadius: "50%", background: m.color, display: "inline-block" }} />
-                      {m.label}
-                    </span>
-                  );
-                })}
-                <span style={{ fontSize: 11, color: D.text2, marginLeft: 8 }}>Drag to swap · Right-click to adjust pacing · Click for details</span>
+              <span style={{ fontSize: 11, color: D.text2, marginLeft: 8 }}>Drag to swap · Right-click to adjust pacing · Click for details</span>
               </div>
 
               {/* Weekly Bell Ringers */}
@@ -1851,10 +2289,14 @@ export default function Phase2({ isActive, calendarVersion, selectedCourse: sele
             dayMeta={selectedDayMeta}
             weeklyData={weeklyData}
             onClose={() => setSelectedDay(null)}
-            onStatusChange={handleStatusChange}
             onNoteChange={handleNoteChange}
             onBellRingerChange={handleBellRingerChange}
+            onResourcesChange={handleResourcesChange}
             pathwayColor={pathwayColor}
+            pushConfig={pushConfig}
+            classroomLog={classroomLog}
+            onClassroomPosted={handleClassroomPosted}
+            mondayStr={currentMonday}
           />
         )}
       </div>

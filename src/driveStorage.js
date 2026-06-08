@@ -318,3 +318,29 @@ export async function savePushLog(courseId, log) {
   try { await writeFile(`bell-push-log-${courseId}.json`, log.slice(-20)); }
   catch (e) { console.error('[Drive] savePushLog failed:', e); }
 }
+
+// ─── CLASSROOM PUSH ───────────────────────────────────────────────────────────
+
+export async function loadClassroomConfig(courseId) {
+  if (!isSignedIn()) return null;
+  try { return await readFile(`classroom-push-config-${courseId}.json`); }
+  catch (_) { return null; }
+}
+
+export async function saveClassroomConfig(courseId, config) {
+  if (!isSignedIn()) return;
+  try { await writeFile(`classroom-push-config-${courseId}.json`, config); }
+  catch (e) { console.error('[Drive] saveClassroomConfig failed:', e); }
+}
+
+export async function loadClassroomLog(courseId) {
+  if (!isSignedIn()) return {};
+  try { return await readFile(`classroom-push-log-${courseId}.json`) || {}; }
+  catch (_) { return {}; }
+}
+
+export async function saveClassroomLog(courseId, log) {
+  if (!isSignedIn()) return;
+  try { await writeFile(`classroom-push-log-${courseId}.json`, log); }
+  catch (e) { console.error('[Drive] saveClassroomLog failed:', e); }
+}
