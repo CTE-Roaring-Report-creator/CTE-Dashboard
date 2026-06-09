@@ -408,7 +408,7 @@ function QuickNote({ dateStr: ds, existingNote, lesson, onSave, onClose, pathway
 
 // ─── DETAIL PANEL ────────────────────────────────────────────────────────────
 
-function DetailPanel({ dateKey, lesson, unit, dayMeta, weeklyData, onClose, onNoteChange, onBellRingerChange, onResourcesChange, pathwayColor, pushConfig, classroomLog, onClassroomPosted, mondayStr }) {
+function DetailPanel({ dateKey, lesson, unit, dayMeta, weeklyData, onClose, onNoteChange, onBellRingerChange, onInstructionsChange, onResourcesChange, pathwayColor, pushConfig, classroomLog, onClassroomPosted, mondayStr }) {
   const note = weeklyData?.[dateKey]?.note || "";
   const [localNote, setLocalNote] = useState(note);
   const [noteDirty, setNoteDirty] = useState(false);
@@ -420,6 +420,10 @@ function DetailPanel({ dateKey, lesson, unit, dayMeta, weeklyData, onClose, onNo
   const currentBR = getBellRinger(lesson, dayIndex);
   const [localBR, setLocalBR] = useState(currentBR);
   const [brDirty, setBrDirty] = useState(false);
+
+  // Classroom instructions editable state
+  const [localInstructions, setLocalInstructions] = useState(lesson?.classroomInstructions || "");
+  const [instructionsDirty, setInstructionsDirty] = useState(false);
 
   // ── Resource editing state ────────────────────────────────────────────────
   const [localLinks, setLocalLinks] = useState(lesson?.links || []);
@@ -514,6 +518,8 @@ function DetailPanel({ dateKey, lesson, unit, dayMeta, weeklyData, onClose, onNo
     setPushMessage("");
     setPostUrl(null);
     setShowPostPanel(false);
+    setLocalInstructions(lesson?.classroomInstructions || "");
+    setInstructionsDirty(false);
   }, [lesson?.id, dateKey]);
 
   const handlePost = async () => {
@@ -547,7 +553,7 @@ function DetailPanel({ dateKey, lesson, unit, dayMeta, weeklyData, onClose, onNo
       lessonTitle:   lesson.title,
       lessonType:    lesson.type,
       classroomType,
-      objective:     lesson.objective || "",
+      instructions:  localInstructions.trim() || lesson.objective || "",
       dueDate:       isMaterial ? null : dueDate,
       points:        isMaterial ? null : 4,
       attachments,
@@ -592,6 +598,12 @@ function DetailPanel({ dateKey, lesson, unit, dayMeta, weeklyData, onClose, onNo
     setLocalBR(getBellRinger(lesson, dayMeta?.dayIndex || 1));
     setBrDirty(false);
   }, [lesson?.id, dayMeta?.dayIndex]);
+
+  // Reset instructions when lesson changes
+  useEffect(() => {
+    setLocalInstructions(lesson?.classroomInstructions || "");
+    setInstructionsDirty(false);
+  }, [lesson?.id]);
 
   const saveBellRinger = () => {
     if (onBellRingerChange) {
@@ -914,6 +926,52 @@ function DetailPanel({ dateKey, lesson, unit, dayMeta, weeklyData, onClose, onNo
           {/* Expanded post panel */}
           {showPostPanel && (
             <div style={{ padding: "0 18px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
+
+              {/* Classroom Instructions */}
+              <div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 5 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: D.text2, letterSpacing: "0.05em", textTransform: "uppercase" }}>
+                    Instructions
+                  </span>
+                  {instructionsDirty && (
+                    <div style={{ display: "flex", gap: 5 }}>
+                      <button
+                        onClick={() => {
+                          if (onInstructionsChange) onInstructionsChange(lesson, localInstructions);
+                          setInstructionsDirty(false);
+                        }}
+                        style={{ ...btnStyle, fontSize: 11, padding: "2px 9px", background: pathwayColor + "22", color: pathwayColor, borderColor: pathwayColor + "50", fontWeight: 600 }}
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => { setLocalInstructions(lesson?.classroomInstructions || ""); setInstructionsDirty(false); }}
+                        style={{ ...btnStyle, fontSize: 11, padding: "2px 9px" }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </div>
+                <textarea
+                  value={localInstructions}
+                  onChange={e => { setLocalInstructions(e.target.value); setInstructionsDirty(true); }}
+                  placeholder={lesson?.objective ? `Using objective: "${lesson.objective.slice(0, 70)}${lesson.objective.length > 70 ? "…" : ""}"` : "Student-facing instructions for this Classroom post…"}
+                  style={{
+                    ...inputStyle,
+                    fontSize: 12,
+                    minHeight: 70,
+                    resize: "vertical",
+                    color: localInstructions ? D.text0 : D.text2,
+                    fontStyle: localInstructions ? "normal" : "italic",
+                  }}
+                />
+                {!localInstructions && (
+                  <div style={{ fontSize: 11, color: D.text2, marginTop: 3 }}>
+                    Leave blank to use the learning objective.
+                  </div>
+                )}
+              </div>
 
               {/* Due date — assignments only */}
               {!isMaterial && (
@@ -1679,6 +1737,31 @@ export default function Phase2({ isActive, calendarVersion, selectedCourse: sele
     } catch (_) {}
   };
 
+  // ── Classroom instructions inline edit — writes back to Drive via onCurriculaChange
+  const handleClassroomInstructionsChange = (lesson, newText) => {
+    try {
+      const curriculum = curricula[selectedCourse];
+      if (!curriculum) return;
+      let updated = false;
+      const newCurriculum = {
+        ...curriculum,
+        units: curriculum.units.map(unit => ({
+          ...unit,
+          lessons: unit.lessons.map(l => {
+            if (l.id !== lesson.id) return l;
+            updated = true;
+            return { ...l, classroomInstructions: newText };
+          }),
+        })),
+      };
+      if (updated) {
+        const next = { ...curricula, [selectedCourse]: newCurriculum };
+        setCurricula(next);
+        if (onCurriculaChange) onCurriculaChange(next);
+      }
+    } catch (_) {}
+  };
+
   // ── Bell ringer inline edit — writes back to Drive via onCurriculaChange
   const handleBellRingerChange = (lesson, dayIndex, newText) => {
     try {
@@ -2291,6 +2374,7 @@ export default function Phase2({ isActive, calendarVersion, selectedCourse: sele
             onClose={() => setSelectedDay(null)}
             onNoteChange={handleNoteChange}
             onBellRingerChange={handleBellRingerChange}
+            onInstructionsChange={handleClassroomInstructionsChange}
             onResourcesChange={handleResourcesChange}
             pathwayColor={pathwayColor}
             pushConfig={pushConfig}

@@ -657,6 +657,19 @@ function LessonEditor({ lesson, onSave, onClose, standards }) {
         </div>
 
         <div>
+          <label style={modalLabelStyle}>
+            Classroom Instructions
+            <span style={{ fontSize: 11, fontWeight: 400, color: "#5a6380", marginLeft: 8 }}>Student-facing post description in Google Classroom</span>
+          </label>
+          <textarea
+            value={form.classroomInstructions || ""}
+            onChange={e => update("classroomInstructions", e.target.value)}
+            style={{ ...modalInputStyle, minHeight: 72, resize: "vertical" }}
+            placeholder={form.objective ? `Defaults to objective: "${form.objective.slice(0, 80)}${form.objective.length > 80 ? "…" : ""}"` : "What should students see in Google Classroom? (defaults to learning objective if blank)"}
+          />
+        </div>
+
+        <div>
           <label style={modalLabelStyle}>Bell Ringers</label>
           <p style={{ margin: "0 0 10px", fontSize: 12, color: "#5a6380" }}>
             One per day — set in Learning Objective above. Add a check-in question for each day this lesson runs.
