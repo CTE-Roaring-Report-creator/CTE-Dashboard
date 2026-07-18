@@ -5,7 +5,7 @@
 // previously saved data is picked up automatically.
 
 // ⚠️ PASTE YOUR NEW SCHOOL SCRIPT /exec URL HERE:
-const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxm-oCufPdG60N2I-9ZkGlHfU1KPftMmOJ3oM6KEJxn74PX9tGVEWQ8XFTKvZTsBvK-cA/exec';
+const SCRIPT_URL = https://script.google.com/macros/s/AKfycbxm-oCufPdG60N2I-9ZkGlHfU1KPftMmOJ3oM6KEJxn74PX9tGVEWQ8XFTKvZTsBvK-cA/exec;
 
 // ─── CORE TRANSPORT ──────────────────────────────────────────────────────────
 
