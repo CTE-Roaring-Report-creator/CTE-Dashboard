@@ -14,8 +14,9 @@ const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxm-oCufPdG60N2I-9Zk
 
 function debugLog(msg, isError) {
   return;
-  /* ...leave the rest of the function body here, unreachable... */
-  let box = document.getElementById('storage-debug');
+  // ...leave the rest of the function body here, unreachable... 
+  
+  /*let box = document.getElementById('storage-debug');
   if (!box) {
     box = document.createElement('div');
     box.id = 'storage-debug';
@@ -31,7 +32,7 @@ function debugLog(msg, isError) {
   box.appendChild(line);
   box.scrollTop = box.scrollHeight;
 }
-
+*/
 // ─── CORE TRANSPORT (single declaration) ─────────────────────────────────────
 
 async function callScript(body) {
