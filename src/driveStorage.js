@@ -18,33 +18,6 @@ async function callScript(body) {
   if (!data.ok) throw new Error(data.message || 'Script error');
   return data;
 }
-
-async function callScript(body) {
-  const label = body.action + " " + (body.key || "");
-  try {
-    const res = await fetch(SCRIPT_URL, {
-      method: "POST",
-      headers: { "Content-Type": "text/plain" },
-      body: JSON.stringify(body),
-    });
-    const text = await res.text();
-    let data;
-    try { data = JSON.parse(text); }
-    catch (_) {
-      debugLog("✗ " + label + " → HTTP " + res.status + " NON-JSON: " + text.slice(0, 120), true);
-      throw new Error("Non-JSON response");
-    }
-    if (!data.ok) {
-      debugLog("✗ " + label + " → " + (data.message || "not ok"), true);
-      throw new Error(data.message || "Script error");
-    }
-    debugLog("✓ " + label + (body.action === "loadData" ? (data.value === null ? " → null" : " → data") : " → saved"));
-    return data;
-  } catch (err) {
-    debugLog("✗ " + label + " → " + err.message, true);
-    throw err;
-  }
-}
 // ─── CORE TRANSPORT ──────────────────────────────────────────────────────────
 
 async function callScript(body) {
