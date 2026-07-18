@@ -1,34 +1,65 @@
-// ─── APPS SCRIPT STORAGE ─────────────────────────────────────────────────────
+// ─── APPS SCRIPT STORAGE (with temporary debug overlay) ──────────────────────
 // Replaces the Google OAuth / Drive API version. All data is stored as JSON
 // files in the "CTE Dashboard Data" folder of the school Drive, via the
-// Apps Script web app. Filenames match the original version exactly, so all
-// previously saved data is picked up automatically.
+// Apps Script web app.
+//
+// The debug overlay paints every storage call at the bottom of the screen.
+// Once the calendar bug is fixed, this file can be swapped for the clean
+// version (or just leave it — it's harmless, only visible when calls happen).
 
 // ⚠️ PASTE YOUR NEW SCHOOL SCRIPT /exec URL HERE:
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxm-oCufPdG60N2I-9ZkGlHfU1KPftMmOJ3oM6KEJxn74PX9tGVEWQ8XFTKvZTsBvK-cA/exec';
 
-// ─── DEBUG OVERLAY (temporary — remove once fixed) ──────────────────────────
-async function callScript(body) {
-  const res = await fetch(SCRIPT_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain' }, // text/plain avoids CORS preflight
-    body: JSON.stringify(body),
-  });
-  const data = await res.json();
-  if (!data.ok) throw new Error(data.message || 'Script error');
-  return data;
+// ─── DEBUG OVERLAY (temporary) ───────────────────────────────────────────────
+
+function debugLog(msg, isError) {
+  let box = document.getElementById('storage-debug');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'storage-debug';
+    box.style.cssText =
+      'position:fixed;bottom:0;left:0;right:0;max-height:35vh;overflow:auto;' +
+      'background:#111;color:#0f0;font:11px monospace;padding:6px 10px;z-index:99999;' +
+      'border-top:2px solid #0f0;white-space:pre-wrap;';
+    document.body.appendChild(box);
+  }
+  const line = document.createElement('div');
+  line.textContent = new Date().toLocaleTimeString() + '  ' + msg;
+  if (isError) line.style.color = '#f55';
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
 }
-// ─── CORE TRANSPORT ──────────────────────────────────────────────────────────
+
+// ─── CORE TRANSPORT (single declaration) ─────────────────────────────────────
 
 async function callScript(body) {
-  const res = await fetch(SCRIPT_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain' }, // text/plain avoids CORS preflight
-    body: JSON.stringify(body),
-  });
-  const data = await res.json();
-  if (!data.ok) throw new Error(data.message || 'Script error');
-  return data;
+  const label = body.action + ' ' + (body.key || '');
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' }, // text/plain avoids CORS preflight
+      body: JSON.stringify(body),
+    });
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (_) {
+      debugLog('✗ ' + label + ' → HTTP ' + res.status + ' NON-JSON: ' + text.slice(0, 120), true);
+      throw new Error('Non-JSON response');
+    }
+    if (!data.ok) {
+      debugLog('✗ ' + label + ' → ' + (data.message || 'not ok'), true);
+      throw new Error(data.message || 'Script error');
+    }
+    debugLog('✓ ' + label + (body.action === 'loadData' ? (data.value === null ? ' → null' : ' → data') : ' → saved'));
+    return data;
+  } catch (err) {
+    if (err.message !== 'Non-JSON response' && (err.message || '').indexOf('Script error') === -1 && !err.__logged) {
+      debugLog('✗ ' + label + ' → ' + err.message, true);
+    }
+    throw err;
+  }
 }
 
 // NOTE: the Apps Script side appends ".json" to the key, so the key here is
@@ -157,16 +188,13 @@ export async function savePushLog(courseId, log) {
 }
 
 // ─── CLASSROOM LOG ────────────────────────────────────────────────────────────
-// (Present in the repo's current version per the build error — signature
-// assumed to match the pushLog pattern. If the app calls these differently,
-// the key derivation below may need a tweak.)
 
 export async function loadClassroomLog(courseId) {
-  try { return (await readFile(`classroom-log-${courseId}`)) || []; }
-  catch (_) { return []; }
+  try { return (await readFile(`classroom-push-log-${courseId}`)) || {}; }
+  catch (_) { return {}; }
 }
 
 export async function saveClassroomLog(courseId, log) {
-  try { await writeFile(`classroom-log-${courseId}`, log); }
+  try { await writeFile(`classroom-push-log-${courseId}`, log); }
   catch (e) { console.error('[Storage] saveClassroomLog failed:', e); }
 }
