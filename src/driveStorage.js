@@ -10,7 +10,7 @@
 // ⚠️ PASTE YOUR NEW SCHOOL SCRIPT /exec URL HERE:
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxm-oCufPdG60N2I-9ZkGlHfU1KPftMmOJ3oM6KEJxn74PX9tGVEWQ8XFTKvZTsBvK-cA/exec';
 
-// ─── DEBUG OVERLAY (temporary) ───────────────────────────────────────────────
+/* ─── DEBUG OVERLAY (temporary) ───────────────────────────────────────────────
 
 function debugLog(msg, isError) {
   let box = document.getElementById('storage-debug');
@@ -29,7 +29,7 @@ function debugLog(msg, isError) {
   box.appendChild(line);
   box.scrollTop = box.scrollHeight;
 }
-
+*/
 // ─── CORE TRANSPORT (single declaration) ─────────────────────────────────────
 
 async function callScript(body) {
