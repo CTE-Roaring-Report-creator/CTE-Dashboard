@@ -8,20 +8,15 @@
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxm-oCufPdG60N2I-9ZkGlHfU1KPftMmOJ3oM6KEJxn74PX9tGVEWQ8XFTKvZTsBvK-cA/exec';
 
 // ─── DEBUG OVERLAY (temporary — remove once fixed) ──────────────────────────
-function debugLog(msg, isError) {
-  let box = document.getElementById("storage-debug");
-  if (!box) {
-    box = document.createElement("div");
-    box.id = "storage-debug";
-    box.style.cssText = "position:fixed;bottom:0;left:0;right:0;max-height:35vh;overflow:auto;" +
-      "background:#111;color:#0f0;font:11px monospace;padding:6px 10px;z-index:99999;" +
-      "border-top:2px solid #0f0;white-space:pre-wrap;";
-    document.body.appendChild(box);
-  }
-  const line = document.createElement("div");
-  line.textContent = new Date().toLocaleTimeString() + "  " + msg;
-  if (isError) line.style.color = "#f55";
-  box.appendChild(line);
+async function callScript(body) {
+  const res = await fetch(SCRIPT_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain' }, // text/plain avoids CORS preflight
+    body: JSON.stringify(body),
+  });
+  const data = await res.json();
+  if (!data.ok) throw new Error(data.message || 'Script error');
+  return data;
 }
 
 async function callScript(body) {
