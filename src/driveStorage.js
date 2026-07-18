@@ -1,22 +1,65 @@
-// ─── APPS SCRIPT STORAGE ─────────────────────────────────────────────────────
-// All data is stored as JSON files in the "CTE Dashboard Data" folder of the
-// school Drive, via the Apps Script web app. No OAuth, no sign-in.
-// Filenames match the original Drive API version exactly.
+// ─── APPS SCRIPT STORAGE (with temporary debug overlay) ──────────────────────
+// Replaces the Google OAuth / Drive API version. All data is stored as JSON
+// files in the "CTE Dashboard Data" folder of the school Drive, via the
+// Apps Script web app.
+//
+// The debug overlay paints every storage call at the bottom of the screen.
+// Once the calendar bug is fixed, this file can be swapped for the clean
+// version (or just leave it — it's harmless, only visible when calls happen).
 
-// ⚠️ PASTE YOUR SCHOOL SCRIPT /exec URL HERE:
+// ⚠️ PASTE YOUR NEW SCHOOL SCRIPT /exec URL HERE:
 const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxm-oCufPdG60N2I-9ZkGlHfU1KPftMmOJ3oM6KEJxn74PX9tGVEWQ8XFTKvZTsBvK-cA/exec';
 
-// ─── CORE TRANSPORT ──────────────────────────────────────────────────────────
+// ─── DEBUG OVERLAY (temporary) ───────────────────────────────────────────────
+
+function debugLog(msg, isError) {
+  let box = document.getElementById('storage-debug');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'storage-debug';
+    box.style.cssText =
+      'position:fixed;bottom:0;left:0;right:0;max-height:35vh;overflow:auto;' +
+      'background:#111;color:#0f0;font:11px monospace;padding:6px 10px;z-index:99999;' +
+      'border-top:2px solid #0f0;white-space:pre-wrap;';
+    document.body.appendChild(box);
+  }
+  const line = document.createElement('div');
+  line.textContent = new Date().toLocaleTimeString() + '  ' + msg;
+  if (isError) line.style.color = '#f55';
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+
+// ─── CORE TRANSPORT (single declaration) ─────────────────────────────────────
 
 async function callScript(body) {
-  const res = await fetch(SCRIPT_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain' }, // text/plain avoids CORS preflight
-    body: JSON.stringify(body),
-  });
-  const data = await res.json();
-  if (!data.ok) throw new Error(data.message || 'Script error');
-  return data;
+  const label = body.action + ' ' + (body.key || '');
+  try {
+    const res = await fetch(SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' }, // text/plain avoids CORS preflight
+      body: JSON.stringify(body),
+    });
+    const text = await res.text();
+    let data;
+    try {
+      data = JSON.parse(text);
+    } catch (_) {
+      debugLog('✗ ' + label + ' → HTTP ' + res.status + ' NON-JSON: ' + text.slice(0, 120), true);
+      throw new Error('Non-JSON response');
+    }
+    if (!data.ok) {
+      debugLog('✗ ' + label + ' → ' + (data.message || 'not ok'), true);
+      throw new Error(data.message || 'Script error');
+    }
+    debugLog('✓ ' + label + (body.action === 'loadData' ? (data.value === null ? ' → null' : ' → data') : ' → saved'));
+    return data;
+  } catch (err) {
+    if (err.message !== 'Non-JSON response' && (err.message || '').indexOf('Script error') === -1 && !err.__logged) {
+      debugLog('✗ ' + label + ' → ' + err.message, true);
+    }
+    throw err;
+  }
 }
 
 // NOTE: the Apps Script side appends ".json" to the key, so the key here is
