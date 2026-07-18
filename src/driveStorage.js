@@ -14,6 +14,7 @@ const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxm-oCufPdG60N2I-9Zk
 
 function debugLog(msg, isError) {
   return;
+}
   // ...leave the rest of the function body here, unreachable... 
   
   /*let box = document.getElementById('storage-debug');
